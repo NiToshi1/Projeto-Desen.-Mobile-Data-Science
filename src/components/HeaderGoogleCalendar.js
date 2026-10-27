@@ -15,13 +15,15 @@ export default function HeaderGoogleCalendar({
   navigation,
   titulo = 'Outubro de 2026',
   aoBuscar,
+  aoAbrirMenu,
+  aoAbrirPerfil,
 }) {
   return (
     <View style={styles.container}>
       <View style={styles.esquerda}>
         <TouchableOpacity
           style={styles.botaoIcone}
-          onPress={() => navigation.openDrawer()}
+          onPress={aoAbrirMenu || (() => navigation?.openDrawer?.())}
           hitSlop={12}
         >
           <Ionicons name="menu" size={26} color="#3C4043" />
@@ -42,9 +44,14 @@ export default function HeaderGoogleCalendar({
           <Ionicons name="calendar-outline" size={20} color="#5F6368" />
         </TouchableOpacity>
 
-        <View style={styles.avatar}>
+        <TouchableOpacity
+          style={styles.avatar}
+          onPress={aoAbrirPerfil || (() => {})}
+          hitSlop={8}
+          activeOpacity={0.8}
+        >
           <Text style={styles.avatarTexto}>F</Text>
-        </View>
+        </TouchableOpacity>
       </View>
     </View>
   );

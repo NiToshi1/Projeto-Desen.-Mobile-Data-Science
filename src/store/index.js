@@ -17,4 +17,8 @@ export const store = configureStore({
   },
 });
 
+export * from './authSlice';
+export * from './agendaSlice';
+export * from './ocorrenciasSlice';
+
 export default store;

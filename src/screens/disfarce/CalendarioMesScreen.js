@@ -10,19 +10,31 @@ import {
 import { useSelector } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import HeaderGoogleCalendar from '../../components/HeaderGoogleCalendar';
+import GoogleCalendarDrawerModal from './GoogleCalendarDrawerModal';
+import ConfiguracoesDisfarceModal from './ConfiguracoesDisfarceModal';
+import NovoEventoModal from './NovoEventoModal';
+import DetalheEventoModal from './DetalheEventoModal';
 
 // ============================================================
 // Tela 1: Calendário · Visualização Mês (Disfarce)
 // Reproduz fielmente a grade de mês do Google Calendar.
 // Mostra dias da semana (D S T Q Q S S), os 31 dias de Outubro,
 // marcadores coloridos nos dias com eventos e a lista do dia selecionado.
+// Permite abrir menu lateral, novo evento, detalhes e configurações (PIN 1234).
 // ============================================================
 
 const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
-export default function CalendarioMesScreen({ navigation }) {
+export default function CalendarioMesScreen({ navigation = {} }) {
   const eventos = useSelector((state) => state.agenda.eventos);
   const [diaSelecionado, setDiaSelecionado] = useState(27);
+
+  // Estados dos modais de fluxo
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [configuracoesAbertas, setConfiguracoesAbertas] = useState(false);
+  const [novoEventoAberto, setNovoEventoAberto] = useState(false);
+  const [eventoSelecionado, setEventoSelecionado] = useState(null);
+  const [visualizacaoAtual, setVisualizacaoAtual] = useState('Mês');
 
   // Outubro de 2026 começa na Quinta-feira (índice 4 no array D=0, S=1, T=2, Q=3, Q=4)
   const espacosInicio = 4;
@@ -49,7 +61,12 @@ export default function CalendarioMesScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <HeaderGoogleCalendar navigation={navigation} titulo="Outubro de 2026" />
+      <HeaderGoogleCalendar
+        navigation={navigation}
+        titulo="Outubro de 2026"
+        aoAbrirMenu={() => setMenuAberto(true)}
+        aoAbrirPerfil={() => setConfiguracoesAbertas(true)}
+      />
 
       <ScrollView style={styles.conteudo} showsVerticalScrollIndicator={false}>
         {/* Cabeçalho dos dias da semana */}
@@ -120,7 +137,7 @@ export default function CalendarioMesScreen({ navigation }) {
               <TouchableOpacity
                 key={evento.id}
                 style={[styles.cartaoEvento, { borderLeftColor: evento.cor || '#1A73E8' }]}
-                onPress={() => navigation.navigate('DetalheEvento', { evento })}
+                onPress={() => setEventoSelecionado(evento)}
                 activeOpacity={0.8}
               >
                 <View style={styles.eventoInfo}>
@@ -159,11 +176,37 @@ export default function CalendarioMesScreen({ navigation }) {
       {/* Botão Flutuante (FAB) do Google Calendar */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => navigation.navigate('NovoEvento')}
+        onPress={() => setNovoEventoAberto(true)}
         activeOpacity={0.85}
       >
         <Ionicons name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
+
+      {/* Modais de Suporte do Disfarce */}
+      <GoogleCalendarDrawerModal
+        visivel={menuAberto}
+        aoFechar={() => setMenuAberto(false)}
+        aoAbrirConfiguracoes={() => setConfiguracoesAbertas(true)}
+        visualizacaoAtual={visualizacaoAtual}
+        aoSelecionarVisualizacao={setVisualizacaoAtual}
+      />
+
+      <ConfiguracoesDisfarceModal
+        visivel={configuracoesAbertas}
+        aoFechar={() => setConfiguracoesAbertas(false)}
+      />
+
+      <NovoEventoModal
+        visivel={novoEventoAberto}
+        dataPadrao={dataFormatada}
+        aoFechar={() => setNovoEventoAberto(false)}
+      />
+
+      <DetalheEventoModal
+        evento={eventoSelecionado}
+        visivel={!!eventoSelecionado}
+        aoFechar={() => setEventoSelecionado(null)}
+      />
     </SafeAreaView>
   );
 }
