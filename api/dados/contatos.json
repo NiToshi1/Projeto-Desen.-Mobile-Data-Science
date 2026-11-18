@@ -1,0 +1,5 @@
+[
+  { "id": 1, "nome": "Mariana Vaz", "parentesco": "Irmã", "telefone": "(43) 99881-2233", "contato_confianca": true, "prioridade": true },
+  { "id": 2, "nome": "Dra. Deise Souza", "parentesco": "Advogada", "telefone": "(43) 99123-4567", "contato_confianca": true, "prioridade": false },
+  { "id": 3, "nome": "Juliana Mendes", "parentesco": "Amiga Próxima", "telefone": "(43) 99765-8899", "contato_confianca": true, "prioridade": false }
+]

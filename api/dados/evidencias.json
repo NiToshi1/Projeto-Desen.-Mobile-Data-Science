@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "ocorrenciaId": 1,
+    "tipo": "audio",
+    "nome": "gravacao_ameacas_24out.m4a",
+    "descricao": "Áudio gravado discretamente com as ameaças proferidas.",
+    "data_upload": "24/10/2026"
+  },
+  {
+    "id": 2,
+    "ocorrenciaId": 1,
+    "tipo": "foto",
+    "nome": "print_mensagens_whatsapp.png",
+    "descricao": "Captura de tela com chantagens e mensagens intimidatórias.",
+    "data_upload": "24/10/2026"
+  },
+  {
+    "id": 3,
+    "ocorrenciaId": 2,
+    "tipo": "foto",
+    "nome": "foto_documentos_danificados.jpg",
+    "descricao": "Foto dos documentos rasgados no chão do quarto.",
+    "data_upload": "18/10/2026"
+  }
+]

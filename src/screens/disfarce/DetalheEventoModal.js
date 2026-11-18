@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { removerEvento } from '../../store/agendaSlice';
+import { excluirEvento } from '../../store/agendaSlice';
 
 export default function DetalheEventoModal({ evento, visivel, aoFechar }) {
   const dispatch = useDispatch();
@@ -28,7 +28,7 @@ export default function DetalheEventoModal({ evento, visivel, aoFechar }) {
           text: 'Excluir',
           style: 'destructive',
           onPress: () => {
-            dispatch(removerEvento(evento.id));
+            dispatch(excluirEvento(evento.id));
             aoFechar();
           },
         },

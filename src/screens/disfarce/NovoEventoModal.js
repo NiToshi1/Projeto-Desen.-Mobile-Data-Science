@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { adicionarEvento } from '../../store/agendaSlice';
+import { salvarEvento } from '../../store/agendaSlice';
 
 const CORES_CATEGORIAS = [
   { categoria: 'Trabalho', cor: '#1A73E8' },
@@ -32,14 +32,13 @@ export default function NovoEventoModal({ visivel, aoFechar, dataPadrao = '2026-
   const [descricao, setDescricao] = useState('');
   const [categoriaSelecionada, setCategoriaSelecionada] = useState(CORES_CATEGORIAS[0]);
 
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
     if (!titulo.trim()) {
       Alert.alert('Título obrigatório', 'Por favor, insira o título do evento.');
       return;
     }
 
     const novoEvento = {
-      id: `ev-${Date.now()}`,
       titulo: titulo.trim(),
       data: data.trim(),
       horaInicio: horaInicio.trim(),
@@ -50,7 +49,12 @@ export default function NovoEventoModal({ visivel, aoFechar, dataPadrao = '2026-
       categoria: categoriaSelecionada.categoria,
     };
 
-    dispatch(adicionarEvento(novoEvento));
+    try {
+      await dispatch(salvarEvento(novoEvento)).unwrap();
+    } catch {
+      Alert.alert('Não foi possível salvar', 'Verifique os dados e sua conexão e tente novamente.');
+      return;
+    }
     // Limpar campos
     setTitulo('');
     setLocal('');

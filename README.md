@@ -1,56 +1,99 @@
-# Welcome to your Expo app 👋
+# Aplicativo de Apoio Camuflado — Projeto Integrador (2º semestre de 2026)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Tema: **Violência contra a Mulher**. O app se disfarça de uma agenda comum (estilo Google Calendar)
+e esconde, atrás de um gatilho secreto, um **Espaço Seguro** para registrar ocorrências, guardar
+evidências, acionar a rede de apoio e avisar contatos de confiança.
 
-## Get started
+> **Aviso:** protótipo acadêmico. Não substitui os serviços oficiais de proteção. Em risco
+> imediato, ligue **190** (Polícia Militar) ou **180** (Central de Atendimento à Mulher).
 
-1. Install dependencies
+## Arquitetura
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+┌──────────────────────────┐   HTTP/JSON    ┌────────────────────────────┐
+│ App Expo (React Native)  │ ─────────────▶ │ API Node.js + Express      │
+│ src/                     │                │ api/                       │
+│  • Disfarce (agenda)     │ ◀───────────── │  • 6 coleções (JSON)       │
+│  • Espaço Seguro         │                │  • rotas RESTful completas │
+│  • Redux Toolkit (cache) │                │  • validação + relacionam. │
+└──────────────────────────┘                └────────────────────────────┘
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+| Camada | Tecnologia | Onde |
+|---|---|---|
+| App | Expo SDK 58, Expo Router, React Native 0.88 | `src/` |
+| Estado | Redux Toolkit (`createAsyncThunk`) | `src/store/` |
+| Acesso à API | `fetch` + tratamento de erro único | `src/services/api.js` |
+| Back-end | Node.js + Express 5 | `api/server.js` |
+| Dados | Arquivos JSON (uma coleção por entidade) | `api/dados/` |
 
-### Other setup steps
+## Como rodar
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+São **dois terminais**: a API precisa estar no ar para o app funcionar.
 
-## Learn more
+```bash
+# Terminal 1 — API (porta 3333)
+cd api
+npm install
+npm start
 
-To learn more about developing your project with Expo, look at the following resources:
+# Terminal 2 — App
+npm install
+npx expo start
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+O app descobre sozinho o endereço da API: usa o mesmo IP do computador que serve o Expo
+(celular e computador na **mesma rede Wi-Fi**). Para forçar outro endereço, copie
+`.env.example` para `.env` e ajuste `EXPO_PUBLIC_API_URL` (reinicie o app depois).
 
-## Join the community
+Testes da API: `cd api && npm test`.
 
-Join our community of developers creating universal apps.
+## Disfarce: entrada e saída rápida
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+**Entrada** — no calendário: menu lateral → **Configurações** → **Diagnóstico de Sincronização** →
+digite o PIN de 4 dígitos (protótipo: `1234`). A tela troca para o Espaço Seguro.
+
+**Saída rápida (quick exit)** — botão **SAIR AGORA** no topo do Espaço Seguro e botão vermelho 👁
+no cabeçalho dos modais de cadastro. Um único toque, **sem confirmação**: volta ao calendário
+e a store apaga da memória todas as ocorrências e contatos. Respostas da API que cheguem depois da
+saída são descartadas.
+
+Com a API fora do ar, o calendário continua abrindo normalmente (sem mensagens de erro, para não
+denunciar o app); só o Espaço Seguro mostra o aviso com "Tentar novamente".
+
+## Entidades e relacionamentos
+
+```
+Ocorrência (1) ────< (N) Evidência
+Ocorrência (1) ────< (N) Encaminhamento (N) >──── (1) Serviço de apoio
+Contato de confiança        Evento da agenda (disfarce)
+```
+
+Relacionamentos **validados pela API** (400 se o id não existir): `evidencias.ocorrenciaId`,
+`encaminhamentos.ocorrenciaId`, `encaminhamentos.servicoId`. Apagar uma ocorrência apaga em
+cascata suas evidências e encaminhamentos. Detalhes das rotas em [`api/README.md`](api/README.md).
+
+## Checklist da Entrega 4
+
+- [x] Back-end Node/Express com rotas RESTful completas e erros 400/404/500 (`api/`)
+- [x] Mais de uma coleção, uma por CRUD (6 coleções)
+- [x] App consumindo a API real, sem `mockData` (`src/services/api.js` + `src/store/`)
+- [x] Relacionamentos reais validados pela API
+- [x] Entrada + saída rápida funcionando juntas, com dados vindos da API
+- [x] Update e Delete funcionando (testes automatizados + "Alterar nível de risco", prioridade de contato, exclusões na UI)
+- [ ] Modelo de Data Science integrado ao app (ver `data-science/`, ainda pendente)
+- [ ] Matriz de responsabilidades preenchida (abaixo)
+- [ ] Kanban exportado em PDF/imagem
+
+## Matriz de responsabilidades
+
+> Preencher com os integrantes do grupo (cada aluno é dono de um CRUD).
+
+| Integrante | CRUD / entidade | Telas | Rotas da API | Data Science |
+|---|---|---|---|---|
+| _(nome)_ | | | | |
+| _(nome)_ | | | | |
+
+## Uso de IA
+
+Ferramentas e prompts registrados em [`USO_IA.md`](USO_IA.md).

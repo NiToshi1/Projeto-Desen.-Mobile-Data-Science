@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { adicionarContato } from '../../store/ocorrenciasSlice';
+import { salvarContato } from '../../store/ocorrenciasSlice';
+import BotaoSaidaRapida from '../../components/BotaoSaidaRapida';
 
 export default function NovoContatoModal({ visivel, aoFechar }) {
   const dispatch = useDispatch();
@@ -23,14 +24,13 @@ export default function NovoContatoModal({ visivel, aoFechar }) {
   const [telefone, setTelefone] = useState('');
   const [prioridade, setPrioridade] = useState(false);
 
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
     if (!nome.trim() || !telefone.trim()) {
       Alert.alert('Dados incompletos', 'Informe pelo menos o nome e telefone do contato.');
       return;
     }
 
     const novoContato = {
-      id: `ct-${Date.now()}`,
       nome: nome.trim(),
       parentesco: parentesco.trim() || 'Apoio de Confiança',
       telefone: telefone.trim(),
@@ -38,7 +38,12 @@ export default function NovoContatoModal({ visivel, aoFechar }) {
       prioridade,
     };
 
-    dispatch(adicionarContato(novoContato));
+    try {
+      await dispatch(salvarContato(novoContato)).unwrap();
+    } catch (e) {
+      Alert.alert('Não foi possível salvar', e.message);
+      return;
+    }
     setNome('');
     setParentesco('');
     setTelefone('');
@@ -55,9 +60,12 @@ export default function NovoContatoModal({ visivel, aoFechar }) {
             <Ionicons name="close" size={24} color="#F8FAFC" />
           </TouchableOpacity>
           <Text style={styles.headerTitulo}>Novo Guardião de Confiança</Text>
-          <TouchableOpacity onPress={handleSalvar} style={styles.botaoSalvar}>
-            <Text style={styles.textoSalvar}>Salvar</Text>
-          </TouchableOpacity>
+          <View style={styles.acoesHeader}>
+            <BotaoSaidaRapida />
+            <TouchableOpacity onPress={handleSalvar} style={styles.botaoSalvar}>
+              <Text style={styles.textoSalvar}>Salvar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView style={styles.conteudo} showsVerticalScrollIndicator={false}>
@@ -136,6 +144,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#F8FAFC',
+  },
+  acoesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   botaoSalvar: {
     backgroundColor: '#7C3AED',

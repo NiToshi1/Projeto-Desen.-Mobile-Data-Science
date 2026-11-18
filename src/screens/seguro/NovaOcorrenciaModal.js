@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { adicionarOcorrencia } from '../../store/ocorrenciasSlice';
+import { salvarOcorrencia } from '../../store/ocorrenciasSlice';
+import BotaoSaidaRapida from '../../components/BotaoSaidaRapida';
 
 const TIPOS_VIOLENCIA = [
   'Psicológica',
@@ -41,35 +42,35 @@ export default function NovaOcorrenciaModal({ visivel, aoFechar }) {
   const [nomeEvidencia, setNomeEvidencia] = useState('');
   const [tipoEvidencia, setTipoEvidencia] = useState('audio');
 
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
     if (!descricao.trim()) {
       Alert.alert('Descrição necessária', 'Descreva o que ocorreu para manter o registro seguro.');
       return;
     }
 
-    const evidencias = [];
-    if (nomeEvidencia.trim()) {
-      evidencias.push({
-        id: `ev-${Date.now()}`,
-        tipo: tipoEvidencia,
-        nome: nomeEvidencia.trim(),
-        descricao: 'Evidência anexada no momento do registro confidencial.',
-        data_upload: '27/10/2026',
-      });
-    }
+    const evidencia = nomeEvidencia.trim()
+      ? {
+          tipo: tipoEvidencia,
+          nome: nomeEvidencia.trim(),
+          descricao: 'Evidência anexada no momento do registro confidencial.',
+          data_upload: new Date().toLocaleDateString('pt-BR'),
+        }
+      : null;
 
     const novaOcorrencia = {
-      id: `oc-${Date.now()}`,
       data_ocorrencia: dataOcorrencia.trim(),
       tipo_violencia: tipoViolencia,
       local: local.trim() || 'Não informado',
       descricao: descricao.trim(),
       nivel_risco: nivelRisco,
-      evidencias,
-      encaminhamentos: [],
     };
 
-    dispatch(adicionarOcorrencia(novaOcorrencia));
+    try {
+      await dispatch(salvarOcorrencia({ ocorrencia: novaOcorrencia, evidencia })).unwrap();
+    } catch (e) {
+      Alert.alert('Não foi possível salvar', e.message);
+      return;
+    }
     // Reset
     setLocal('');
     setDescricao('');
@@ -87,9 +88,12 @@ export default function NovaOcorrenciaModal({ visivel, aoFechar }) {
             <Ionicons name="close" size={24} color="#F8FAFC" />
           </TouchableOpacity>
           <Text style={styles.headerTitulo}>Registrar Ocorrência</Text>
-          <TouchableOpacity onPress={handleSalvar} style={styles.botaoSalvar}>
-            <Text style={styles.textoSalvar}>Salvar</Text>
-          </TouchableOpacity>
+          <View style={styles.acoesHeader}>
+            <BotaoSaidaRapida />
+            <TouchableOpacity onPress={handleSalvar} style={styles.botaoSalvar}>
+              <Text style={styles.textoSalvar}>Salvar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView style={styles.conteudo} showsVerticalScrollIndicator={false}>
@@ -256,6 +260,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#F8FAFC',
+  },
+  acoesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   botaoSalvar: {
     backgroundColor: '#7C3AED',

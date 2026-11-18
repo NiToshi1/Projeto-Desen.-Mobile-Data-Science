@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "data_ocorrencia": "2026-10-24 21:40",
+    "tipo_violencia": "Psicológica",
+    "local": "Residência - Sala de Estar",
+    "descricao": "Ameaças verbais constantes, ofensas à minha integridade e tentativa de reter meu celular após discussão.",
+    "nivel_risco": 4
+  },
+  {
+    "id": 2,
+    "data_ocorrencia": "2026-10-18 19:15",
+    "tipo_violencia": "Patrimonial",
+    "local": "Residência",
+    "descricao": "Destruição proposital de documentos pessoais (RG, carteira de trabalho) e quebra de objetos pessoais.",
+    "nivel_risco": 3
+  }
+]

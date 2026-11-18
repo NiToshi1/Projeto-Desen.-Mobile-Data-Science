@@ -7,9 +7,7 @@ import {
   Modal,
   ScrollView,
   SafeAreaView,
-  TextInput,
   Switch,
-  Alert,
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';

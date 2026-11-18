@@ -5,9 +5,11 @@ import { createSlice } from '@reduxjs/toolkit';
 // false = modo Disfarce ativo (Google Calendar visível)
 // true  = modo Espaço Seguro ativo (área real protegida)
 //
-// Na Entrega 2, o gatilho é digitar o PIN '1234' na tela de
-// Configurações do disfarce, que dispara entrarEspacoSeguro().
-// O botão 'Sair' dispara sairEspacoSeguro(), limpando a sessão.
+// Entrada: digitar o PIN '1234' em Configurações > Diagnóstico de
+// Sincronização dispara entrarEspacoSeguro() (protótipo: PIN fixo).
+// Saída rápida: 'SAIR AGORA' / BotaoSaidaRapida disparam
+// sairEspacoSeguro() sem confirmação; o ocorrenciasSlice escuta essa
+// ação e apaga os dados sensíveis da memória.
 // ============================================================
 
 const initialState = {

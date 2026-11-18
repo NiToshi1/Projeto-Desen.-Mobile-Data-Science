@@ -8,14 +8,18 @@ import {
   SafeAreaView,
   Linking,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   sairEspacoSeguro,
-  removerOcorrencia,
-  removerContato,
+  excluirOcorrencia,
+  excluirContato,
   alternarPrioridadeContato,
+  atualizarNivelRisco,
+  carregarEspacoSeguro,
+  limparErro,
 } from '../../store';
 import NovaOcorrenciaModal from './NovaOcorrenciaModal';
 import NovoContatoModal from './NovoContatoModal';
@@ -26,6 +30,8 @@ export default function EspacoSeguroScreen() {
   const ocorrencias = useSelector((state) => state.ocorrencias.ocorrencias);
   const contatos = useSelector((state) => state.ocorrencias.contatos);
   const servicosApoio = useSelector((state) => state.ocorrencias.servicosApoio);
+  const carregando = useSelector((state) => state.ocorrencias.carregando);
+  const erro = useSelector((state) => state.ocorrencias.erro);
 
   const [abaAtiva, setAbaAtiva] = useState('ocorrencias'); // 'ocorrencias' | 'rede' | 'guardioes'
   const [modalNovaOcorrencia, setModalNovaOcorrencia] = useState(false);
@@ -64,7 +70,7 @@ export default function EspacoSeguroScreen() {
         {
           text: 'Excluir',
           style: 'destructive',
-          onPress: () => dispatch(removerOcorrencia(id)),
+          onPress: () => dispatch(excluirOcorrencia(id)),
         },
       ]
     );
@@ -79,7 +85,7 @@ export default function EspacoSeguroScreen() {
         {
           text: 'Remover',
           style: 'destructive',
-          onPress: () => dispatch(removerContato(id)),
+          onPress: () => dispatch(excluirContato(id)),
         },
       ]
     );
@@ -182,6 +188,26 @@ export default function EspacoSeguroScreen() {
 
       {/* ================= CONTEÚDO DA ABA ATIVA ================= */}
       <ScrollView style={styles.conteudo} showsVerticalScrollIndicator={false}>
+        {carregando && (
+          <View style={styles.statusRede}>
+            <ActivityIndicator size="small" color="#A78BFA" />
+            <Text style={styles.txtStatusRede}>Sincronizando com o servidor...</Text>
+          </View>
+        )}
+        {erro && !carregando && (
+          <View style={[styles.statusRede, styles.statusRedeErro]}>
+            <Ionicons name="cloud-offline-outline" size={18} color="#EF4444" />
+            <Text style={[styles.txtStatusRede, { flex: 1 }]}>{erro}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                dispatch(limparErro());
+                dispatch(carregarEspacoSeguro());
+              }}
+            >
+              <Text style={styles.txtTentarNovamente}>Tentar novamente</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {/* ==================== ABA 1: OCORRÊNCIAS ==================== */}
         {abaAtiva === 'ocorrencias' && (
           <View>
@@ -292,6 +318,20 @@ export default function EspacoSeguroScreen() {
 
                       {/* Ações inferiores */}
                       <View style={styles.cardOcFooter}>
+                        <TouchableOpacity
+                          style={styles.btnAlterarRisco}
+                          onPress={() =>
+                            dispatch(
+                              atualizarNivelRisco({
+                                id: oc.id,
+                                nivel_risco: (oc.nivel_risco % 5) + 1,
+                              })
+                            )
+                          }
+                        >
+                          <Ionicons name="swap-vertical-outline" size={15} color="#A78BFA" />
+                          <Text style={styles.txtAlterarRisco}>Alterar nível de risco</Text>
+                        </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.btnExcluirOc}
                           onPress={() => handleExcluirOcorrencia(oc.id)}
@@ -770,7 +810,7 @@ const styles = StyleSheet.create({
   },
   cardOcFooter: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     borderTopWidth: 1,
     borderTopColor: '#334155',
     paddingTop: 10,
@@ -780,6 +820,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingVertical: 4,
+  },
+  btnAlterarRisco: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+  },
+  txtAlterarRisco: {
+    fontSize: 12,
+    color: '#A78BFA',
+    fontWeight: '600',
+  },
+  statusRede: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    padding: 12,
+    marginBottom: 12,
+  },
+  statusRedeErro: {
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  txtStatusRede: {
+    fontSize: 12,
+    color: '#CBD5E1',
+  },
+  txtTentarNovamente: {
+    fontSize: 12,
+    color: '#A78BFA',
+    fontWeight: '700',
   },
   txtExcluirOc: {
     fontSize: 12,
