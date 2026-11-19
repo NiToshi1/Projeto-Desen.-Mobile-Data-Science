@@ -114,6 +114,20 @@ export const excluirContato = createAsyncThunk('contatos/excluir', async (id) =>
   return id;
 });
 
+export const salvarServico = createAsyncThunk(
+  'servicos/salvar',
+  async (servico, { getState, rejectWithValue }) => {
+    const criado = await api.criarServico(servico);
+    if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
+    return criado;
+  }
+);
+
+export const excluirServico = createAsyncThunk('servicos/excluir', async (id) => {
+  await api.removerServico(id);
+  return id;
+});
+
 const registrarErro = (state, action) => {
   if (action.payload === SESSAO_ENCERRADA) return;
   state.erro = action.error?.message || 'Falha ao comunicar com o servidor.';
@@ -162,12 +176,24 @@ export const ocorrenciasSlice = createSlice({
       .addCase(excluirContato.fulfilled, (state, action) => {
         state.contatos = state.contatos.filter((c) => c.id !== action.payload);
       })
+      .addCase(salvarServico.fulfilled, (state, action) => {
+        state.servicosApoio.push(action.payload);
+      })
+      .addCase(excluirServico.fulfilled, (state, action) => {
+        state.servicosApoio = state.servicosApoio.filter((s) => s.id !== action.payload);
+        // A API apaga em cascata os encaminhamentos que usavam o serviço: espelhamos isso aqui.
+        state.ocorrencias.forEach((oc) => {
+          oc.encaminhamentos = oc.encaminhamentos.filter((e) => e.servicoId !== action.payload);
+        });
+      })
       .addCase(salvarOcorrencia.rejected, registrarErro)
       .addCase(atualizarNivelRisco.rejected, registrarErro)
       .addCase(excluirOcorrencia.rejected, registrarErro)
       .addCase(salvarContato.rejected, registrarErro)
       .addCase(alternarPrioridadeContato.rejected, registrarErro)
-      .addCase(excluirContato.rejected, registrarErro);
+      .addCase(excluirContato.rejected, registrarErro)
+      .addCase(salvarServico.rejected, registrarErro)
+      .addCase(excluirServico.rejected, registrarErro);
   },
 });
 

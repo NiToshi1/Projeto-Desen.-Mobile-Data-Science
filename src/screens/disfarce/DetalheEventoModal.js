@@ -7,8 +7,8 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  Alert,
 } from 'react-native';
+import { alertar } from '../../utils/alerta';
 import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { excluirEvento } from '../../store/agendaSlice';
@@ -19,7 +19,7 @@ export default function DetalheEventoModal({ evento, visivel, aoFechar }) {
   if (!evento) return null;
 
   const handleExcluir = () => {
-    Alert.alert(
+    alertar(
       'Excluir evento',
       `Deseja realmente remover o compromisso "${evento.titulo}"?`,
       [

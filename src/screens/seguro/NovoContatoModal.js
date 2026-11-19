@@ -9,8 +9,8 @@ import {
   ScrollView,
   SafeAreaView,
   Switch,
-  Alert,
 } from 'react-native';
+import { alertar } from '../../utils/alerta';
 import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { salvarContato } from '../../store/ocorrenciasSlice';
@@ -26,7 +26,7 @@ export default function NovoContatoModal({ visivel, aoFechar }) {
 
   const handleSalvar = async () => {
     if (!nome.trim() || !telefone.trim()) {
-      Alert.alert('Dados incompletos', 'Informe pelo menos o nome e telefone do contato.');
+      alertar('Dados incompletos', 'Informe pelo menos o nome e telefone do contato.');
       return;
     }
 
@@ -41,7 +41,7 @@ export default function NovoContatoModal({ visivel, aoFechar }) {
     try {
       await dispatch(salvarContato(novoContato)).unwrap();
     } catch (e) {
-      Alert.alert('Não foi possível salvar', e.message);
+      alertar('Não foi possível salvar', e.message);
       return;
     }
     setNome('');

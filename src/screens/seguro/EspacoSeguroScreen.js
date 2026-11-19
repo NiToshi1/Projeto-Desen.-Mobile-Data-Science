@@ -7,15 +7,16 @@ import {
   ScrollView,
   SafeAreaView,
   Linking,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
+import { alertar } from '../../utils/alerta';
 import { useSelector, useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   sairEspacoSeguro,
   excluirOcorrencia,
   excluirContato,
+  excluirServico,
   alternarPrioridadeContato,
   atualizarNivelRisco,
   carregarEspacoSeguro,
@@ -23,6 +24,7 @@ import {
 } from '../../store';
 import NovaOcorrenciaModal from './NovaOcorrenciaModal';
 import NovoContatoModal from './NovoContatoModal';
+import NovoServicoModal from './NovoServicoModal';
 import IndicadorTerritorialCard from './IndicadorTerritorialCard';
 
 export default function EspacoSeguroScreen() {
@@ -37,6 +39,7 @@ export default function EspacoSeguroScreen() {
   const [abaAtiva, setAbaAtiva] = useState('ocorrencias'); // 'ocorrencias' | 'rede' | 'guardioes'
   const [modalNovaOcorrencia, setModalNovaOcorrencia] = useState(false);
   const [modalNovoContato, setModalNovoContato] = useState(false);
+  const [modalNovoServico, setModalNovoServico] = useState(false);
 
   // Saída rápida de emergência (botão de pânico / disfarce instantâneo)
   const handleDisfarceImediato = () => {
@@ -45,7 +48,7 @@ export default function EspacoSeguroScreen() {
 
   const handleLigar = (telefone, nomeServico) => {
     const numLimpo = telefone.replace(/\D/g, '');
-    Alert.alert(
+    alertar(
       'Iniciar Ligação',
       `Deseja discar para ${nomeServico} (${telefone})?`,
       [
@@ -54,7 +57,7 @@ export default function EspacoSeguroScreen() {
           text: 'Ligar',
           onPress: () => {
             Linking.openURL(`tel:${numLimpo}`).catch(() => {
-              Alert.alert('Erro', 'Não foi possível acionar o discador.');
+              alertar('Erro', 'Não foi possível acionar o discador.');
             });
           },
         },
@@ -63,7 +66,7 @@ export default function EspacoSeguroScreen() {
   };
 
   const handleExcluirOcorrencia = (id) => {
-    Alert.alert(
+    alertar(
       'Excluir registro',
       'Tem certeza de que deseja apagar esta ocorrência do seu histórico seguro?',
       [
@@ -78,7 +81,7 @@ export default function EspacoSeguroScreen() {
   };
 
   const handleExcluirContato = (id, nome) => {
-    Alert.alert(
+    alertar(
       'Remover Guardião',
       `Deseja remover "${nome}" da sua rede de confiança?`,
       [
@@ -87,6 +90,21 @@ export default function EspacoSeguroScreen() {
           text: 'Remover',
           style: 'destructive',
           onPress: () => dispatch(excluirContato(id)),
+        },
+      ]
+    );
+  };
+
+  const handleExcluirServico = (id, nome) => {
+    alertar(
+      'Remover serviço',
+      `Deseja remover "${nome}" da rede de apoio? Os encaminhamentos feitos para ele também serão removidos.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Remover',
+          style: 'destructive',
+          onPress: () => dispatch(excluirServico(id)),
         },
       ]
     );
@@ -394,6 +412,15 @@ export default function EspacoSeguroScreen() {
               </Text>
             </View>
 
+            <TouchableOpacity
+              style={styles.btnAdicionarGuardião}
+              onPress={() => setModalNovoServico(true)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.txtAdicionarGuardião}>Adicionar Serviço de Apoio</Text>
+            </TouchableOpacity>
+
             {servicosApoio.map((srv) => (
               <View key={srv.id} style={styles.cardServico}>
                 <View style={styles.servicoHeader}>
@@ -406,14 +433,23 @@ export default function EspacoSeguroScreen() {
                       <Text style={styles.txt24h}>24 HORAS</Text>
                     </View>
                   )}
+                  <TouchableOpacity
+                    style={styles.btnExcluirContato}
+                    onPress={() => handleExcluirServico(srv.id, srv.nome)}
+                    hitSlop={8}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                  </TouchableOpacity>
                 </View>
 
                 <Text style={styles.servicoDescricao}>{srv.descricao}</Text>
 
-                <View style={styles.servicoLinha}>
-                  <Ionicons name="location-outline" size={14} color="#94A3B8" />
-                  <Text style={styles.servicoTextoLinha}>{srv.endereco}</Text>
-                </View>
+                {srv.endereco ? (
+                  <View style={styles.servicoLinha}>
+                    <Ionicons name="location-outline" size={14} color="#94A3B8" />
+                    <Text style={styles.servicoTextoLinha}>{srv.endereco}</Text>
+                  </View>
+                ) : null}
 
                 <View style={styles.servicoFooter}>
                   <View style={styles.servicoTelefoneContainer}>
@@ -538,6 +574,11 @@ export default function EspacoSeguroScreen() {
       <NovoContatoModal
         visivel={modalNovoContato}
         aoFechar={() => setModalNovoContato(false)}
+      />
+
+      <NovoServicoModal
+        visivel={modalNovoServico}
+        aoFechar={() => setModalNovoServico(false)}
       />
     </SafeAreaView>
   );

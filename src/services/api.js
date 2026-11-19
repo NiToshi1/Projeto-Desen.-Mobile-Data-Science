@@ -66,6 +66,8 @@ export const criarEncaminhamento = (dados) => post('/encaminhamentos', dados);
 
 // ---------- Serviços de apoio ----------
 export const listarServicos = () => requisitar('/servicos');
+export const criarServico = (dados) => post('/servicos', dados);
+export const removerServico = (id) => del('/servicos', id);
 
 // ---------- Contatos ----------
 export const listarContatos = () => requisitar('/contatos');

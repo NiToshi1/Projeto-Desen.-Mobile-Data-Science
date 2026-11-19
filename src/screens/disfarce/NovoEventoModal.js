@@ -8,8 +8,8 @@ import {
   TextInput,
   ScrollView,
   SafeAreaView,
-  Alert,
 } from 'react-native';
+import { alertar } from '../../utils/alerta';
 import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { salvarEvento } from '../../store/agendaSlice';
@@ -34,7 +34,7 @@ export default function NovoEventoModal({ visivel, aoFechar, dataPadrao = '2026-
 
   const handleSalvar = async () => {
     if (!titulo.trim()) {
-      Alert.alert('Título obrigatório', 'Por favor, insira o título do evento.');
+      alertar('Título obrigatório', 'Por favor, insira o título do evento.');
       return;
     }
 
@@ -52,7 +52,7 @@ export default function NovoEventoModal({ visivel, aoFechar, dataPadrao = '2026-
     try {
       await dispatch(salvarEvento(novoEvento)).unwrap();
     } catch {
-      Alert.alert('Não foi possível salvar', 'Verifique os dados e sua conexão e tente novamente.');
+      alertar('Não foi possível salvar', 'Verifique os dados e sua conexão e tente novamente.');
       return;
     }
     // Limpar campos

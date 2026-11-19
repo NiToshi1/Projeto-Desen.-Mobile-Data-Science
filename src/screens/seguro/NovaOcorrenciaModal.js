@@ -8,8 +8,8 @@ import {
   TextInput,
   ScrollView,
   SafeAreaView,
-  Alert,
 } from 'react-native';
+import { alertar } from '../../utils/alerta';
 import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { salvarOcorrencia } from '../../store/ocorrenciasSlice';
@@ -44,7 +44,7 @@ export default function NovaOcorrenciaModal({ visivel, aoFechar }) {
 
   const handleSalvar = async () => {
     if (!descricao.trim()) {
-      Alert.alert('Descrição necessária', 'Descreva o que ocorreu para manter o registro seguro.');
+      alertar('Descrição necessária', 'Descreva o que ocorreu para manter o registro seguro.');
       return;
     }
 
@@ -68,7 +68,7 @@ export default function NovaOcorrenciaModal({ visivel, aoFechar }) {
     try {
       await dispatch(salvarOcorrencia({ ocorrencia: novaOcorrencia, evidencia })).unwrap();
     } catch (e) {
-      Alert.alert('Não foi possível salvar', e.message);
+      alertar('Não foi possível salvar', e.message);
       return;
     }
     // Reset
