@@ -23,6 +23,7 @@ import {
 } from '../../store';
 import NovaOcorrenciaModal from './NovaOcorrenciaModal';
 import NovoContatoModal from './NovoContatoModal';
+import IndicadorTerritorialCard from './IndicadorTerritorialCard';
 
 export default function EspacoSeguroScreen() {
   const dispatch = useDispatch();
@@ -382,6 +383,9 @@ export default function EspacoSeguroScreen() {
                 </TouchableOpacity>
               </View>
             </View>
+
+            {/* Indicador de contexto territorial (modelo de Data Science) */}
+            <IndicadorTerritorialCard />
 
             {/* Lista dos Serviços Especializados */}
             <View style={styles.secaoHeaderContainer}>

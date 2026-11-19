@@ -73,6 +73,11 @@ export const criarContato = (dados) => post('/contatos', dados);
 export const atualizarContato = (id, dados) => put('/contatos', id, dados);
 export const removerContato = (id) => del('/contatos', id);
 
+// ---------- Indicador de contexto territorial (modelo de Data Science) ----------
+export const obterRiscoTerritorial = () => requisitar('/risco-territorial');
+export const buscarMunicipiosRisco = (uf, busca = '') =>
+  requisitar(`/risco-territorial/municipios?uf=${encodeURIComponent(uf)}&busca=${encodeURIComponent(busca)}`);
+
 // ---------- Eventos da agenda (disfarce) ----------
 export const listarEventos = () => requisitar('/eventos');
 export const criarEvento = (dados) => post('/eventos', dados);

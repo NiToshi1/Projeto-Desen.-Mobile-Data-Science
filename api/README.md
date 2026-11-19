@@ -6,7 +6,7 @@ externo, para rodar em qualquer notebook só com Node).
 ```bash
 npm install
 npm start        # http://localhost:3333  (troque a porta com PORT=4000)
-npm test         # 11 testes de integração (usam cópia temporária dos dados)
+npm test         # 14 testes de integração (usam cópia temporária dos dados)
 ```
 
 Teste rápido: `curl http://localhost:3333/` → `{"status":"ok", ...}`.
@@ -25,6 +25,17 @@ O `PUT` é parcial (só os campos enviados mudam). A listagem aceita filtro por 
 | `/servicos` | `nome`, `tipo`, `telefone`, `endereco`, `atendimento_24h`, `descricao` | `DELETE` remove encaminhamentos que o usavam |
 | `/contatos` | `nome`, `parentesco`, `telefone`, `contato_confianca`, `prioridade` | só um contato pode ter `prioridade: true` |
 | `/eventos` | `titulo`, `data` (AAAA-MM-DD), `horaInicio`, `horaFim` (HH:MM), `local`, `descricao`, `cor`, `categoria` | |
+
+## Indicador de contexto territorial (Data Science)
+
+Somente leitura. Serve o resultado do modelo de `data-science/notebook.ipynb` (arquivo `dados/risco_territorial.json`).
+Toda resposta traz o **aviso de estimativa acadêmica**.
+
+| Rota | O que devolve |
+|---|---|
+| `GET /risco-territorial` | metadados (aviso, modelo, métricas, faixas) e as 27 UFs com categoria |
+| `GET /risco-territorial/municipios?uf=SP&busca=campin` | até 50 municípios da UF (busca sem acento). `uf` é obrigatória: `400` se faltar ou for inválida |
+| `GET /risco-territorial/municipios/:codigo` | um município pelo código IBGE; `404` se não coberto (menos de 20 mil hab.) |
 
 ## Erros
 

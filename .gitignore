@@ -41,3 +41,9 @@ example
 # generated native folders
 /ios
 /android
+
+# Python / Data Science
+.venv/
+venv/
+__pycache__/
+.ipynb_checkpoints/

@@ -1,0 +1,11 @@
+{
+ "data_acesso": "2026-11-18",
+ "api": "http://www.ipeadata.gov.br/api/odata4",
+ "series": {
+  "AVIOL12_HOMICF": "homicidios_feminino",
+  "AVIOL12_HOMICM": "homicidios_masculino",
+  "AVIOL12_HOMIC": "homicidios_total",
+  "AVIOL12_VIOLPOP": "populacao"
+ },
+ "ano_inicial": 2010
+}

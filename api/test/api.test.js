@@ -122,3 +122,29 @@ test("CRUD de eventos valida formato de data e hora", async () => {
   assert.equal(ok.status, 201);
   assert.equal((await chamar("DELETE", `/eventos/${ok.corpo.id}`)).status, 200);
 });
+
+test("indicador de risco territorial: metadados trazem o aviso de estimativa acadêmica", async () => {
+  const r = await chamar("GET", "/risco-territorial");
+  assert.equal(r.status, 200);
+  assert.match(r.corpo.metadados.aviso, /Estimativa acadêmica/);
+  assert.equal(r.corpo.ufs.length, 27);
+  assert.ok(["Baixo", "Médio", "Alto"].includes(r.corpo.ufs[0].categoria));
+  assert.equal(r.corpo.municipios, undefined); // lista completa só pela rota de municípios
+});
+
+test("indicador de risco territorial: busca de municípios por UF e nome (sem acento)", async () => {
+  const r = await chamar("GET", "/risco-territorial/municipios?uf=sp&busca=sao jose");
+  assert.equal(r.status, 200);
+  assert.match(r.corpo.aviso, /Estimativa acadêmica/);
+  assert.ok(r.corpo.municipios.length > 0 && r.corpo.municipios.length <= 50);
+  assert.ok(r.corpo.municipios.every((m) => m.uf === "SP" && /sao jose/i.test(m.nome.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))));
+});
+
+test("indicador de risco territorial: UF inválida -> 400 e município inexistente -> 404", async () => {
+  assert.equal((await chamar("GET", "/risco-territorial/municipios")).status, 400);
+  assert.equal((await chamar("GET", "/risco-territorial/municipios?uf=XX")).status, 400);
+  assert.equal((await chamar("GET", "/risco-territorial/municipios/0000000")).status, 404);
+  const ok = await chamar("GET", "/risco-territorial/municipios/3550308");
+  assert.equal(ok.status, 200);
+  assert.equal(ok.corpo.municipio.nome, "São Paulo");
+});

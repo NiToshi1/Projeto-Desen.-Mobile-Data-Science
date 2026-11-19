@@ -239,6 +239,44 @@ function criarApp() {
     })
   );
 
+  // ---------- Indicador de contexto territorial (Data Science) ----------
+  // Resultado do modelo treinado em data-science/notebook.ipynb (somente leitura).
+  // Sempre acompanhado de metadados.aviso: é uma estimativa acadêmica.
+  const risco = express.Router();
+  const lerRisco = () => JSON.parse(fs.readFileSync(arquivo("risco_territorial"), "utf-8"));
+  const semAcento = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  risco.get("/", (req, res) => {
+    const { metadados, ufs } = lerRisco();
+    res.json({ metadados, ufs });
+  });
+
+  // GET /risco-territorial/municipios?uf=SP&busca=campin  (uf é obrigatória; no máximo 50 resultados)
+  risco.get("/municipios", (req, res) => {
+    const dados = lerRisco();
+    const uf = String(req.query.uf || "").toUpperCase();
+    if (!dados.ufs.some((u) => u.uf === uf)) {
+      return res.status(400).json({ erros: ["Informe uma UF válida em 'uf' (ex.: ?uf=SP)."] });
+    }
+    const busca = semAcento(req.query.busca || "");
+    const lista = dados.municipios
+      .filter((m) => m.uf === uf && semAcento(m.nome).includes(busca))
+      .slice(0, 50);
+    res.json({ aviso: dados.metadados.aviso, municipios: lista });
+  });
+
+  risco.get("/municipios/:codigo", (req, res) => {
+    const dados = lerRisco();
+    const m = dados.municipios.find((x) => x.codigo === req.params.codigo);
+    if (!m) {
+      return res.status(404).json({
+        erro: `Município ${req.params.codigo} não encontrado (o modelo cobre municípios com 20 mil habitantes ou mais).`,
+      });
+    }
+    res.json({ aviso: dados.metadados.aviso, municipio: m });
+  });
+  app.use("/risco-territorial", risco);
+
   app.get("/", (req, res) => {
     res.json({ status: "ok", mensagem: "API do aplicativo de apoio camuflado rodando." });
   });

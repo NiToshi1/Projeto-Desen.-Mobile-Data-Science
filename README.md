@@ -1,4 +1,6 @@
-# Aplicativo de Apoio Camuflado — Projeto Integrador (2º semestre de 2026)
+# Agenda Inteligente — Aplicativo de Apoio Camuflado
+
+Projeto Integrador (2º semestre de 2026) · Integrantes: **Nicolas Toshio** e **Fernando Vinicius**
 
 Tema: **Violência contra a Mulher**. O app se disfarça de uma agenda comum (estilo Google Calendar)
 e esconde, atrás de um gatilho secreto, um **Espaço Seguro** para registrar ocorrências, guardar
@@ -16,7 +18,13 @@ evidências, acionar a rede de apoio e avisar contatos de confiança.
 │  • Disfarce (agenda)     │ ◀───────────── │  • 6 coleções (JSON)       │
 │  • Espaço Seguro         │                │  • rotas RESTful completas │
 │  • Redux Toolkit (cache) │                │  • validação + relacionam. │
-└──────────────────────────┘                └────────────────────────────┘
+│  • Indicador territorial │                │  • GET /risco-territorial  │
+└──────────────────────────┘                └─────────────▲──────────────┘
+                                                          │ risco_territorial.json
+                                            ┌─────────────┴──────────────┐
+                                            │ Notebook de Data Science   │
+                                            │ data-science/notebook.ipynb│
+                                            └────────────────────────────┘
 ```
 
 | Camada | Tecnologia | Onde |
@@ -26,6 +34,7 @@ evidências, acionar a rede de apoio e avisar contatos de confiança.
 | Acesso à API | `fetch` + tratamento de erro único | `src/services/api.js` |
 | Back-end | Node.js + Express 5 | `api/server.js` |
 | Dados | Arquivos JSON (uma coleção por entidade) | `api/dados/` |
+| Data Science | Python (pandas, scikit-learn), notebook executado | `data-science/` |
 
 ## Como rodar
 
@@ -81,18 +90,27 @@ cascata suas evidências e encaminhamentos. Detalhes das rotas em [`api/README.m
 - [x] Relacionamentos reais validados pela API
 - [x] Entrada + saída rápida funcionando juntas, com dados vindos da API
 - [x] Update e Delete funcionando (testes automatizados + "Alterar nível de risco", prioridade de contato, exclusões na UI)
-- [ ] Modelo de Data Science integrado ao app (ver `data-science/`, ainda pendente)
-- [ ] Matriz de responsabilidades preenchida (abaixo)
+- [x] Modelo de Data Science integrado ao app, com aviso de estimativa acadêmica (`data-science/` → `GET /risco-territorial` → aba *Rede de Apoio*)
+- [x] Matriz de responsabilidades preenchida (abaixo)
 - [ ] Kanban exportado em PDF/imagem
+
+## Data Science: indicador de contexto territorial
+
+Base pública real: **Atlas da Violência (Ipea)**, séries municipais de homicídios e população (via Ipeadata).
+O notebook [`data-science/notebook.ipynb`](data-science/README.md) (já executado) cobre governança, qualidade, tratamento,
+análise exploratória, dois modelos + linha de base com validação cruzada, métricas completas e a integração.
+O modelo estima a probabilidade de um município (20 mil hab. ou mais) ficar entre os 25% com maior taxa de homicídios de mulheres;
+o app mostra **Baixo / Médio / Alto** na aba *Rede de Apoio* do Espaço Seguro, **sempre com o aviso de estimativa acadêmica**.
+É um indicador do *território*, nunca de uma pessoa. Limitações e desempenho: Seções 7 e 9 do notebook.
 
 ## Matriz de responsabilidades
 
-> Preencher com os integrantes do grupo (cada aluno é dono de um CRUD).
+Cada aluno é dono de CRUDs (a API tem 6 coleções, mais que o número de integrantes). Etapas do notebook conforme a Seção 3.3 do Documento Orientador.
 
 | Integrante | CRUD / entidade | Telas | Rotas da API | Data Science |
 |---|---|---|---|---|
-| _(nome)_ | | | | |
-| _(nome)_ | | | | |
+| Nicolas Toshio | Ocorrências, Evidências e Encaminhamentos (relacionamentos validados pela API) | Espaço Seguro: aba Ocorrências, modal Nova Ocorrência, alteração do nível de risco | `/ocorrencias`, `/evidencias`, `/encaminhamentos` | Governança e dicionário, qualidade e tratamento, integração com a API e o app (`/risco-territorial`, card no app) |
+| Fernando Vinicius | Contatos de confiança, Serviços de apoio e Eventos da agenda | Espaço Seguro: abas Guardiões e Rede de Apoio, modal Novo Contato; calendário (disfarce), Novo Evento e Detalhe do Evento | `/contatos`, `/servicos`, `/eventos` | Análise exploratória, modelagem e avaliação |
 
 ## Uso de IA
 
