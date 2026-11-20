@@ -1,7 +1,8 @@
 // ============================================================
-// Camada de acesso à API (pasta api/ do repositório).
-// Desde a Entrega 4 o app não usa mais dados simulados: toda tela lê
-// e grava pela API real, através destas funções.
+// Camada de acesso à API Express (pasta api/ do repositório).
+// Depois da migração para o Supabase, a API só serve o indicador de
+// contexto territorial (modelo de Data Science). Eventos, ocorrências e
+// guardiões ficam no banco: veja src/services/banco.js.
 //
 // Endereço da API (nesta ordem):
 //   1. EXPO_PUBLIC_API_URL no arquivo .env (ex.: http://192.168.0.10:3333)
@@ -44,44 +45,7 @@ async function requisitar(caminho, opcoes) {
   return corpo;
 }
 
-const post = (rota, dados) => requisitar(rota, { method: 'POST', body: JSON.stringify(dados) });
-const put = (rota, id, dados) =>
-  requisitar(`${rota}/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
-const del = (rota, id) => requisitar(`${rota}/${id}`, { method: 'DELETE' });
-
-// ---------- Ocorrências ----------
-export const listarOcorrencias = () => requisitar('/ocorrencias');
-export const criarOcorrencia = (dados) => post('/ocorrencias', dados);
-export const atualizarOcorrencia = (id, dados) => put('/ocorrencias', id, dados);
-export const removerOcorrencia = (id) => del('/ocorrencias', id);
-
-// ---------- Evidências ----------
-export const listarEvidencias = () => requisitar('/evidencias');
-export const criarEvidencia = (dados) => post('/evidencias', dados);
-export const removerEvidencia = (id) => del('/evidencias', id);
-
-// ---------- Encaminhamentos ----------
-export const listarEncaminhamentos = () => requisitar('/encaminhamentos');
-export const criarEncaminhamento = (dados) => post('/encaminhamentos', dados);
-
-// ---------- Serviços de apoio ----------
-export const listarServicos = () => requisitar('/servicos');
-export const criarServico = (dados) => post('/servicos', dados);
-export const removerServico = (id) => del('/servicos', id);
-
-// ---------- Contatos ----------
-export const listarContatos = () => requisitar('/contatos');
-export const criarContato = (dados) => post('/contatos', dados);
-export const atualizarContato = (id, dados) => put('/contatos', id, dados);
-export const removerContato = (id) => del('/contatos', id);
-
 // ---------- Indicador de contexto territorial (modelo de Data Science) ----------
 export const obterRiscoTerritorial = () => requisitar('/risco-territorial');
 export const buscarMunicipiosRisco = (uf, busca = '') =>
   requisitar(`/risco-territorial/municipios?uf=${encodeURIComponent(uf)}&busca=${encodeURIComponent(busca)}`);
-
-// ---------- Eventos da agenda (disfarce) ----------
-export const listarEventos = () => requisitar('/eventos');
-export const criarEvento = (dados) => post('/eventos', dados);
-export const atualizarEvento = (id, dados) => put('/eventos', id, dados);
-export const removerEvento = (id) => del('/eventos', id);

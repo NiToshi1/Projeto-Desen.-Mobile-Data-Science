@@ -1,22 +1,23 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import * as api from '../services/api';
+import * as banco from '../services/banco';
 
 // ============================================================
-// Slice da Agenda (Disfarce): eventos do "Google Calendar" vindos da
-// API. Se a API estiver fora do ar, a agenda simplesmente fica vazia —
-// o disfarce nunca exibe mensagens de erro que denunciem o app.
+// Slice da Agenda (Disfarce): eventos do "Google Calendar" lidos e
+// gravados no banco (Supabase). Se o banco estiver fora do ar, a agenda
+// simplesmente fica vazia — o disfarce nunca exibe mensagens de erro na
+// tela que denunciem o app (só ao tentar salvar um evento).
 // ============================================================
 
 const initialState = {
   eventos: [],
 };
 
-export const carregarEventos = createAsyncThunk('agenda/carregar', () => api.listarEventos());
+export const carregarEventos = createAsyncThunk('agenda/carregar', () => banco.listarEventos());
 
-export const salvarEvento = createAsyncThunk('agenda/salvar', (evento) => api.criarEvento(evento));
+export const salvarEvento = createAsyncThunk('agenda/salvar', (evento) => banco.criarEvento(evento));
 
 export const excluirEvento = createAsyncThunk('agenda/excluir', async (id) => {
-  await api.removerEvento(id);
+  await banco.removerEvento(id);
   return id;
 });
 
@@ -30,7 +31,7 @@ export const agendaSlice = createSlice({
         state.eventos = action.payload;
       })
       .addCase(salvarEvento.fulfilled, (state, action) => {
-        state.eventos.unshift(action.payload);
+        state.eventos.push(action.payload);
       })
       .addCase(excluirEvento.fulfilled, (state, action) => {
         state.eventos = state.eventos.filter((ev) => ev.id !== action.payload);

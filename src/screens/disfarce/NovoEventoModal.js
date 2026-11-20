@@ -13,16 +13,10 @@ import { alertar } from '../../utils/alerta';
 import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { salvarEvento } from '../../store/agendaSlice';
+import { CATEGORIAS as CORES_CATEGORIAS } from '../../constants/agenda';
+import { dataValida, horaValida, paraIso, hoje } from '../../utils/datas';
 
-const CORES_CATEGORIAS = [
-  { categoria: 'Trabalho', cor: '#1A73E8' },
-  { categoria: 'Saúde', cor: '#0F9D58' },
-  { categoria: 'Estudos', cor: '#E65100' },
-  { categoria: 'Pessoal', cor: '#8E24AA' },
-  { categoria: 'Feriado', cor: '#D93025' },
-];
-
-export default function NovoEventoModal({ visivel, aoFechar, dataPadrao = '2026-10-27' }) {
+export default function NovoEventoModal({ visivel, aoFechar, dataPadrao = paraIso(hoje()) }) {
   const dispatch = useDispatch();
   const [titulo, setTitulo] = useState('');
   const [data, setData] = useState(dataPadrao);
@@ -35,6 +29,14 @@ export default function NovoEventoModal({ visivel, aoFechar, dataPadrao = '2026-
   const handleSalvar = async () => {
     if (!titulo.trim()) {
       alertar('Título obrigatório', 'Por favor, insira o título do evento.');
+      return;
+    }
+    if (!dataValida(data.trim())) {
+      alertar('Data inválida', 'Use o formato AAAA-MM-DD, por exemplo 2026-11-19.');
+      return;
+    }
+    if (!horaValida(horaInicio.trim()) || !horaValida(horaFim.trim())) {
+      alertar('Horário inválido', 'Use o formato HH:MM, por exemplo 09:00.');
       return;
     }
 
@@ -51,8 +53,8 @@ export default function NovoEventoModal({ visivel, aoFechar, dataPadrao = '2026-
 
     try {
       await dispatch(salvarEvento(novoEvento)).unwrap();
-    } catch {
-      alertar('Não foi possível salvar', 'Verifique os dados e sua conexão e tente novamente.');
+    } catch (e) {
+      alertar('Não foi possível salvar', e.message);
       return;
     }
     // Limpar campos

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
+  TextInput,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -14,163 +15,335 @@ import GoogleCalendarDrawerModal from './GoogleCalendarDrawerModal';
 import ConfiguracoesDisfarceModal from './ConfiguracoesDisfarceModal';
 import NovoEventoModal from './NovoEventoModal';
 import DetalheEventoModal from './DetalheEventoModal';
+import {
+  gradeDoMes,
+  hoje,
+  inicioDaSemana,
+  mesmoDia,
+  paraIso,
+  deIso,
+  rotuloDia,
+  rotuloIntervalo,
+  somarDias,
+  somarMeses,
+  tituloMes,
+} from '../../utils/datas';
 
 // ============================================================
-// Tela 1: Calendário · Visualização Mês (Disfarce)
-// Reproduz fielmente a grade de mês do Google Calendar.
-// Mostra dias da semana (D S T Q Q S S), os 31 dias de Outubro,
-// marcadores coloridos nos dias com eventos e a lista do dia selecionado.
+// Tela 1: Calendário (Disfarce) — reproduz o Google Agenda.
+// Visualizações: Programação, Dia, 3 Dias, Semana e Mês.
+// Setas e botão "Hoje" navegam; a busca procura em todos os eventos;
+// as categorias do menu lateral (Minhas agendas) mostram/ocultam eventos.
 // Permite abrir menu lateral, novo evento, detalhes e configurações (PIN 1234).
 // ============================================================
 
 const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
-export default function CalendarioMesScreen({ navigation = {} }) {
-  const eventos = useSelector((state) => state.agenda.eventos);
-  const [diaSelecionado, setDiaSelecionado] = useState(27);
+const porDataEHora = (a, b) =>
+  a.data === b.data
+    ? (a.horaInicio || '').localeCompare(b.horaInicio || '')
+    : a.data.localeCompare(b.data);
 
-  // Estados dos modais de fluxo
+function CartaoEvento({ evento, aoAbrir, mostrarData }) {
+  const cor = evento.cor || '#1A73E8';
+  return (
+    <TouchableOpacity
+      style={[styles.cartaoEvento, { borderLeftColor: cor }]}
+      onPress={() => aoAbrir(evento)}
+      activeOpacity={0.8}
+    >
+      <View style={styles.eventoInfo}>
+        <Text style={styles.eventoTitulo}>{evento.titulo}</Text>
+        <View style={styles.eventoLinha}>
+          <Ionicons name="time-outline" size={14} color="#5F6368" />
+          <Text style={styles.eventoHorario}>
+            {mostrarData ? `${rotuloDia(deIso(evento.data))} · ` : ''}
+            {evento.horaInicio || '--:--'} - {evento.horaFim || '--:--'}
+          </Text>
+        </View>
+        {evento.local ? (
+          <View style={styles.eventoLinha}>
+            <Ionicons name="location-outline" size={14} color="#5F6368" />
+            <Text style={styles.eventoLocal} numberOfLines={1}>
+              {evento.local}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+      <View style={[styles.categoriaBadge, { backgroundColor: `${cor}15` }]}>
+        <Text style={[styles.categoriaTexto, { color: cor }]}>{evento.categoria || 'Geral'}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// Um dia com os seus eventos (usado em Dia, 3 Dias, Semana e abaixo da grade do mês).
+function SecaoDia({ data, eventos, aoAbrir, aoEscolher, vazioDetalhado }) {
+  const ehHoje = mesmoDia(data, hoje());
+  return (
+    <View style={styles.secaoEventos}>
+      <TouchableOpacity
+        style={styles.secaoTituloContainer}
+        onPress={aoEscolher}
+        disabled={!aoEscolher}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.secaoTitulo, ehHoje && styles.secaoTituloHoje]}>
+          {rotuloDia(data)}
+          {ehHoje ? ' · Hoje' : ''}
+        </Text>
+        <Text style={styles.secaoContador}>
+          {eventos.length} {eventos.length === 1 ? 'evento' : 'eventos'}
+        </Text>
+      </TouchableOpacity>
+
+      {eventos.length === 0 ? (
+        vazioDetalhado ? (
+          <View style={styles.semEventosCard}>
+            <Ionicons name="sunny-outline" size={32} color="#9AA0A6" />
+            <Text style={styles.semEventosTexto}>Nenhum evento agendado para este dia</Text>
+            <Text style={styles.semEventosSub}>Toque no botão + para criar um novo compromisso</Text>
+          </View>
+        ) : (
+          <Text style={styles.semEventosLinha}>Sem eventos</Text>
+        )
+      ) : (
+        eventos.map((ev) => <CartaoEvento key={ev.id} evento={ev} aoAbrir={aoAbrir} />)
+      )}
+    </View>
+  );
+}
+
+export default function CalendarioMesScreen({ navigation = {} }) {
+  const todosEventos = useSelector((state) => state.agenda.eventos);
+
+  const [dataFoco, setDataFoco] = useState(hoje);
+  const [visualizacao, setVisualizacao] = useState('Mês');
+  const [categoriasOcultas, setCategoriasOcultas] = useState([]);
+  const [buscaAberta, setBuscaAberta] = useState(false);
+  const [termo, setTermo] = useState('');
+
   const [menuAberto, setMenuAberto] = useState(false);
   const [configuracoesAbertas, setConfiguracoesAbertas] = useState(false);
   const [novoEventoAberto, setNovoEventoAberto] = useState(false);
   const [eventoSelecionado, setEventoSelecionado] = useState(null);
-  const [visualizacaoAtual, setVisualizacaoAtual] = useState('Mês');
 
-  // Outubro de 2026 começa na Quinta-feira (índice 4 no array D=0, S=1, T=2, Q=3, Q=4)
-  const espacosInicio = 4;
-  const totalDias = 31;
-  const gradeDias = [];
+  // Só os eventos das agendas (categorias) que estão marcadas, em ordem de data e hora.
+  const eventos = useMemo(
+    () =>
+      todosEventos
+        .filter((ev) => !categoriasOcultas.includes(ev.categoria))
+        .slice()
+        .sort(porDataEHora),
+    [todosEventos, categoriasOcultas]
+  );
 
-  for (let i = 0; i < espacosInicio; i++) {
-    gradeDias.push(null);
-  }
-  for (let dia = 1; dia <= totalDias; dia++) {
-    gradeDias.push(dia);
-  }
+  const eventosDoDia = (data) => eventos.filter((ev) => ev.data === paraIso(data));
+  const datasComEvento = useMemo(() => new Set(eventos.map((ev) => ev.data)), [eventos]);
 
-  // Filtra eventos do dia selecionado
-  const dataFormatada = `2026-10-${String(diaSelecionado).padStart(2, '0')}`;
-  const eventosDoDia = eventos.filter((ev) => ev.data === dataFormatada);
+  // Anterior / próximo respeitam a visualização: mês pula 1 mês, semana 7 dias etc.
+  const mover = (sentido) => {
+    switch (visualizacao) {
+      case 'Mês':
+        return setDataFoco((d) => somarMeses(d, sentido));
+      case 'Semana':
+        return setDataFoco((d) => somarDias(d, 7 * sentido));
+      case '3 Dias':
+        return setDataFoco((d) => somarDias(d, 3 * sentido));
+      default:
+        return setDataFoco((d) => somarDias(d, sentido));
+    }
+  };
 
-  // Função auxiliar para verificar se um dia tem eventos
-  const temEventoNoDia = (dia) => {
-    if (!dia) return false;
-    const dataIso = `2026-10-${String(dia).padStart(2, '0')}`;
-    return eventos.some((ev) => ev.data === dataIso);
+  const alternarCategoria = (categoria) =>
+    setCategoriasOcultas((atuais) =>
+      atuais.includes(categoria) ? atuais.filter((c) => c !== categoria) : [...atuais, categoria]
+    );
+
+  const fecharBusca = () => {
+    setBuscaAberta(false);
+    setTermo('');
+  };
+
+  const rotuloPeriodo = (() => {
+    if (visualizacao === 'Mês') return 'Mês';
+    if (visualizacao === 'Semana') {
+      const ini = inicioDaSemana(dataFoco);
+      return rotuloIntervalo(ini, somarDias(ini, 6));
+    }
+    if (visualizacao === '3 Dias') return rotuloIntervalo(dataFoco, somarDias(dataFoco, 2));
+    if (visualizacao === 'Programação') return `A partir de ${rotuloIntervalo(dataFoco, dataFoco).split(' – ')[0]}`;
+    return rotuloDia(dataFoco);
+  })();
+
+  const termoLimpo = termo.trim().toLowerCase();
+  const resultadosBusca = termoLimpo
+    ? eventos.filter((ev) =>
+        [ev.titulo, ev.local, ev.descricao, ev.categoria]
+          .filter(Boolean)
+          .some((campo) => campo.toLowerCase().includes(termoLimpo))
+      )
+    : [];
+
+  const abrirEvento = (ev) => setEventoSelecionado(ev);
+
+  const renderConteudo = () => {
+    if (buscaAberta && termoLimpo) {
+      return (
+        <View style={styles.secaoEventos}>
+          <Text style={styles.secaoTitulo}>
+            {resultadosBusca.length} {resultadosBusca.length === 1 ? 'resultado' : 'resultados'}
+          </Text>
+          <View style={{ height: 12 }} />
+          {resultadosBusca.map((ev) => (
+            <CartaoEvento key={ev.id} evento={ev} aoAbrir={abrirEvento} mostrarData />
+          ))}
+          {resultadosBusca.length === 0 && (
+            <Text style={styles.semEventosLinha}>Nenhum evento encontrado.</Text>
+          )}
+        </View>
+      );
+    }
+
+    if (visualizacao === 'Mês') {
+      return (
+        <>
+          <View style={styles.linhaDiasSemana}>
+            {DIAS_SEMANA.map((dia, idx) => (
+              <Text key={idx} style={styles.textoDiaSemana}>
+                {dia}
+              </Text>
+            ))}
+          </View>
+          <View style={styles.gradeMes}>
+            {gradeDoMes(dataFoco).map((data, index) => {
+              if (!data) return <View key={`v${index}`} style={styles.celulaVazia} />;
+              const selecionado = mesmoDia(data, dataFoco);
+              const ehHoje = mesmoDia(data, hoje());
+              return (
+                <TouchableOpacity
+                  key={paraIso(data)}
+                  style={[
+                    styles.celulaDia,
+                    ehHoje && !selecionado && styles.celulaHoje,
+                    selecionado && styles.celulaSelecionada,
+                  ]}
+                  onPress={() => setDataFoco(data)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.textoDia,
+                      ehHoje && !selecionado && styles.textoDiaHoje,
+                      selecionado && styles.textoDiaSelecionado,
+                    ]}
+                  >
+                    {data.getDate()}
+                  </Text>
+                  {datasComEvento.has(paraIso(data)) && (
+                    <View
+                      style={[styles.marcadorEvento, selecionado && styles.marcadorEventoSelecionado]}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <SecaoDia
+            data={dataFoco}
+            eventos={eventosDoDia(dataFoco)}
+            aoAbrir={abrirEvento}
+            vazioDetalhado
+          />
+        </>
+      );
+    }
+
+    if (visualizacao === 'Programação') {
+      const proximos = eventos.filter((ev) => ev.data >= paraIso(dataFoco));
+      const datas = [...new Set(proximos.map((ev) => ev.data))];
+      if (datas.length === 0) {
+        return (
+          <View style={styles.secaoEventos}>
+            <View style={styles.semEventosCard}>
+              <Ionicons name="calendar-outline" size={32} color="#9AA0A6" />
+              <Text style={styles.semEventosTexto}>Nenhum evento a partir desta data</Text>
+              <Text style={styles.semEventosSub}>Toque no botão + para criar um novo compromisso</Text>
+            </View>
+          </View>
+        );
+      }
+      return datas.map((iso) => (
+        <SecaoDia
+          key={iso}
+          data={deIso(iso)}
+          eventos={proximos.filter((ev) => ev.data === iso)}
+          aoAbrir={abrirEvento}
+        />
+      ));
+    }
+
+    const quantidade = visualizacao === 'Dia' ? 1 : visualizacao === '3 Dias' ? 3 : 7;
+    const inicio = visualizacao === 'Semana' ? inicioDaSemana(dataFoco) : dataFoco;
+    return Array.from({ length: quantidade }, (_, i) => {
+      const data = somarDias(inicio, i);
+      return (
+        <SecaoDia
+          key={paraIso(data)}
+          data={data}
+          eventos={eventosDoDia(data)}
+          aoAbrir={abrirEvento}
+          aoEscolher={quantidade > 1 ? () => setDataFoco(data) : undefined}
+          vazioDetalhado={quantidade === 1}
+        />
+      );
+    });
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <HeaderGoogleCalendar
         navigation={navigation}
-        titulo="Outubro de 2026"
+        titulo={tituloMes(dataFoco)}
         aoAbrirMenu={() => setMenuAberto(true)}
         aoAbrirPerfil={() => setConfiguracoesAbertas(true)}
+        aoBuscar={() => (buscaAberta ? fecharBusca() : setBuscaAberta(true))}
+        aoIrParaHoje={() => setDataFoco(hoje())}
       />
 
-      <ScrollView style={styles.conteudo} showsVerticalScrollIndicator={false}>
-        {/* Cabeçalho dos dias da semana */}
-        <View style={styles.linhaDiasSemana}>
-          {DIAS_SEMANA.map((dia, idx) => (
-            <Text key={idx} style={styles.textoDiaSemana}>
-              {dia}
-            </Text>
-          ))}
+      {buscaAberta ? (
+        <View style={styles.barraBusca}>
+          <Ionicons name="search" size={18} color="#5F6368" />
+          <TextInput
+            style={styles.inputBusca}
+            value={termo}
+            onChangeText={setTermo}
+            placeholder="Buscar eventos"
+            placeholderTextColor="#9AA0A6"
+            autoFocus
+          />
+          <TouchableOpacity onPress={fecharBusca} hitSlop={10}>
+            <Ionicons name="close" size={20} color="#5F6368" />
+          </TouchableOpacity>
         </View>
-
-        {/* Grade de dias do mês */}
-        <View style={styles.gradeMes}>
-          {gradeDias.map((dia, index) => {
-            if (!dia) {
-              return <View key={index} style={styles.celulaVazia} />;
-            }
-            const selecionado = dia === diaSelecionado;
-            const comEvento = temEventoNoDia(dia);
-
-            return (
-              <TouchableOpacity
-                key={index}
-                style={[styles.celulaDia, selecionado && styles.celulaSelecionada]}
-                onPress={() => setDiaSelecionado(dia)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.textoDia,
-                    selecionado && styles.textoDiaSelecionado,
-                  ]}
-                >
-                  {dia}
-                </Text>
-                {comEvento && (
-                  <View
-                    style={[
-                      styles.marcadorEvento,
-                      selecionado && styles.marcadorEventoSelecionado,
-                    ]}
-                  />
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Seção de eventos do dia selecionado */}
-        <View style={styles.secaoEventos}>
-          <View style={styles.secaoTituloContainer}>
-            <Text style={styles.secaoTitulo}>
-              {diaSelecionado} de Outubro de 2026
-            </Text>
-            <Text style={styles.secaoContador}>
-              {eventosDoDia.length} {eventosDoDia.length === 1 ? 'evento' : 'eventos'}
-            </Text>
+      ) : (
+        <View style={styles.barraPeriodo}>
+          <TouchableOpacity onPress={() => mover(-1)} hitSlop={10} style={styles.setaPeriodo}>
+            <Ionicons name="chevron-back" size={22} color="#5F6368" />
+          </TouchableOpacity>
+          <View style={styles.rotuloPeriodoCaixa}>
+            <Text style={styles.rotuloPeriodoVisao}>{visualizacao}</Text>
+            {visualizacao !== 'Mês' && <Text style={styles.rotuloPeriodoTexto}>{rotuloPeriodo}</Text>}
           </View>
-
-          {eventosDoDia.length === 0 ? (
-            <View style={styles.semEventosCard}>
-              <Ionicons name="sunny-outline" size={32} color="#9AA0A6" />
-              <Text style={styles.semEventosTexto}>Nenhum evento agendado para este dia</Text>
-              <Text style={styles.semEventosSub}>Toque no botão + para criar um novo compromisso</Text>
-            </View>
-          ) : (
-            eventosDoDia.map((evento) => (
-              <TouchableOpacity
-                key={evento.id}
-                style={[styles.cartaoEvento, { borderLeftColor: evento.cor || '#1A73E8' }]}
-                onPress={() => setEventoSelecionado(evento)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.eventoInfo}>
-                  <Text style={styles.eventoTitulo}>{evento.titulo}</Text>
-                  <View style={styles.eventoLinha}>
-                    <Ionicons name="time-outline" size={14} color="#5F6368" />
-                    <Text style={styles.eventoHorario}>
-                      {evento.horaInicio} - {evento.horaFim}
-                    </Text>
-                  </View>
-                  {evento.local ? (
-                    <View style={styles.eventoLinha}>
-                      <Ionicons name="location-outline" size={14} color="#5F6368" />
-                      <Text style={styles.eventoLocal} numberOfLines={1}>
-                        {evento.local}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-                <View
-                  style={[
-                    styles.categoriaBadge,
-                    { backgroundColor: `${evento.cor || '#1A73E8'}15` },
-                  ]}
-                >
-                  <Text style={[styles.categoriaTexto, { color: evento.cor || '#1A73E8' }]}>
-                    {evento.categoria || 'Geral'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
+          <TouchableOpacity onPress={() => mover(1)} hitSlop={10} style={styles.setaPeriodo}>
+            <Ionicons name="chevron-forward" size={22} color="#5F6368" />
+          </TouchableOpacity>
         </View>
+      )}
+
+      <ScrollView style={styles.conteudo} showsVerticalScrollIndicator={false}>
+        {renderConteudo()}
+        <View style={{ height: 90 }} />
       </ScrollView>
 
       {/* Botão Flutuante (FAB) do Google Calendar */}
@@ -187,8 +360,10 @@ export default function CalendarioMesScreen({ navigation = {} }) {
         visivel={menuAberto}
         aoFechar={() => setMenuAberto(false)}
         aoAbrirConfiguracoes={() => setConfiguracoesAbertas(true)}
-        visualizacaoAtual={visualizacaoAtual}
-        aoSelecionarVisualizacao={setVisualizacaoAtual}
+        visualizacaoAtual={visualizacao}
+        aoSelecionarVisualizacao={setVisualizacao}
+        categoriasOcultas={categoriasOcultas}
+        aoAlternarCategoria={alternarCategoria}
       />
 
       <ConfiguracoesDisfarceModal
@@ -196,9 +371,11 @@ export default function CalendarioMesScreen({ navigation = {} }) {
         aoFechar={() => setConfiguracoesAbertas(false)}
       />
 
+      {/* A key remonta o modal a cada abertura: a data volta a ser o dia selecionado e os campos limpam. */}
       <NovoEventoModal
+        key={`${paraIso(dataFoco)}-${novoEventoAberto}`}
         visivel={novoEventoAberto}
-        dataPadrao={dataFormatada}
+        dataPadrao={paraIso(dataFoco)}
         aoFechar={() => setNovoEventoAberto(false)}
       />
 
@@ -218,6 +395,47 @@ const styles = StyleSheet.create({
   },
   conteudo: {
     flex: 1,
+  },
+  barraPeriodo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F3F4',
+  },
+  setaPeriodo: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  rotuloPeriodoCaixa: {
+    alignItems: 'center',
+  },
+  rotuloPeriodoVisao: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1A73E8',
+  },
+  rotuloPeriodoTexto: {
+    fontSize: 12,
+    color: '#5F6368',
+  },
+  barraBusca: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 14,
+    marginVertical: 8,
+    paddingHorizontal: 14,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#F1F3F4',
+  },
+  inputBusca: {
+    flex: 1,
+    fontSize: 14,
+    color: '#202124',
   },
   linhaDiasSemana: {
     flexDirection: 'row',
@@ -253,6 +471,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     marginVertical: 2,
   },
+  celulaHoje: {
+    borderWidth: 1.5,
+    borderColor: '#1A73E8',
+  },
   celulaSelecionada: {
     backgroundColor: '#1A73E8',
   },
@@ -260,6 +482,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#3C4043',
+  },
+  textoDiaHoje: {
+    color: '#1A73E8',
+    fontWeight: '700',
   },
   textoDiaSelecionado: {
     color: '#FFFFFF',
@@ -276,19 +502,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   secaoEventos: {
-    padding: 16,
-    paddingBottom: 90,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   secaoTituloContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   secaoTitulo: {
     fontSize: 15,
     fontWeight: '700',
     color: '#202124',
+  },
+  secaoTituloHoje: {
+    color: '#1A73E8',
   },
   secaoContador: {
     fontSize: 12,
@@ -315,6 +544,11 @@ const styles = StyleSheet.create({
     color: '#70757A',
     marginTop: 4,
     textAlign: 'center',
+  },
+  semEventosLinha: {
+    fontSize: 13,
+    color: '#9AA0A6',
+    marginBottom: 8,
   },
   cartaoEvento: {
     flexDirection: 'row',

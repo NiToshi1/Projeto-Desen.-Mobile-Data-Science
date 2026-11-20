@@ -6,7 +6,7 @@ externo, para rodar em qualquer notebook só com Node).
 ```bash
 npm install
 npm start        # http://localhost:3333  (troque a porta com PORT=4000)
-npm test         # 14 testes de integração (usam cópia temporária dos dados)
+npm test         # 19 testes de integração (usam cópia temporária dos dados)
 ```
 
 Teste rápido: `curl http://localhost:3333/` → `{"status":"ok", ...}`.

@@ -14,75 +14,49 @@ import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { salvarOcorrencia } from '../../store/ocorrenciasSlice';
 import BotaoSaidaRapida from '../../components/BotaoSaidaRapida';
+import { NIVEIS_PERIGO, corDoPerigo, rotuloDoPerigo } from '../../utils/perigo';
 
-const TIPOS_VIOLENCIA = [
-  'Psicológica',
-  'Física',
-  'Patrimonial',
-  'Moral',
-  'Sexual',
-];
-
-const NIVEIS_RISCO = [
-  { nivel: 1, rotulo: '1 - Leve', cor: '#10B981' },
-  { nivel: 2, rotulo: '2 - Moderado', cor: '#3B82F6' },
-  { nivel: 3, rotulo: '3 - Alto', cor: '#F59E0B' },
-  { nivel: 4, rotulo: '4 - Severo', cor: '#F97316' },
-  { nivel: 5, rotulo: '5 - Crítico', cor: '#EF4444' },
-];
-
+// Registro de uma ocorrência: nível de perigo de 1 a 10 + relato.
+// A data e a hora são gravadas automaticamente no momento do registro.
 export default function NovaOcorrenciaModal({ visivel, aoFechar }) {
   const dispatch = useDispatch();
 
-  const [tipoViolencia, setTipoViolencia] = useState(TIPOS_VIOLENCIA[0]);
-  const [dataOcorrencia, setDataOcorrencia] = useState('2026-10-27 10:00');
+  const [nivelPerigo, setNivelPerigo] = useState(null);
   const [local, setLocal] = useState('');
   const [descricao, setDescricao] = useState('');
-  const [nivelRisco, setNivelRisco] = useState(3);
-  const [nomeEvidencia, setNomeEvidencia] = useState('');
-  const [tipoEvidencia, setTipoEvidencia] = useState('audio');
+  const [salvando, setSalvando] = useState(false);
 
   const handleSalvar = async () => {
-    if (!descricao.trim()) {
-      alertar('Descrição necessária', 'Descreva o que ocorreu para manter o registro seguro.');
+    if (!nivelPerigo) {
+      alertar('Nível de perigo', 'Escolha de 1 a 10 o quanto você está em perigo.');
       return;
     }
+    if (salvando) return;
 
-    const evidencia = nomeEvidencia.trim()
-      ? {
-          tipo: tipoEvidencia,
-          nome: nomeEvidencia.trim(),
-          descricao: 'Evidência anexada no momento do registro confidencial.',
-          data_upload: new Date().toLocaleDateString('pt-BR'),
-        }
-      : null;
-
-    const novaOcorrencia = {
-      data_ocorrencia: dataOcorrencia.trim(),
-      tipo_violencia: tipoViolencia,
-      local: local.trim() || 'Não informado',
-      descricao: descricao.trim(),
-      nivel_risco: nivelRisco,
-    };
-
+    setSalvando(true);
     try {
-      await dispatch(salvarOcorrencia({ ocorrencia: novaOcorrencia, evidencia })).unwrap();
+      await dispatch(
+        salvarOcorrencia({
+          nivel_perigo: nivelPerigo,
+          local: local.trim(),
+          descricao: descricao.trim(),
+        })
+      ).unwrap();
     } catch (e) {
       alertar('Não foi possível salvar', e.message);
+      setSalvando(false);
       return;
     }
-    // Reset
+    setSalvando(false);
+    setNivelPerigo(null);
     setLocal('');
     setDescricao('');
-    setNomeEvidencia('');
-    setNivelRisco(3);
     aoFechar();
   };
 
   return (
     <Modal visible={visivel} animationType="slide" onRequestClose={aoFechar}>
       <SafeAreaView style={styles.safeArea}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={aoFechar} hitSlop={10} style={styles.botaoFechar}>
             <Ionicons name="close" size={24} color="#F8FAFC" />
@@ -90,145 +64,74 @@ export default function NovaOcorrenciaModal({ visivel, aoFechar }) {
           <Text style={styles.headerTitulo}>Registrar Ocorrência</Text>
           <View style={styles.acoesHeader}>
             <BotaoSaidaRapida />
-            <TouchableOpacity onPress={handleSalvar} style={styles.botaoSalvar}>
-              <Text style={styles.textoSalvar}>Salvar</Text>
+            <TouchableOpacity
+              onPress={handleSalvar}
+              style={[styles.botaoSalvar, salvando && { opacity: 0.6 }]}
+              disabled={salvando}
+            >
+              <Text style={styles.textoSalvar}>{salvando ? 'Salvando...' : 'Salvar'}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        <ScrollView style={styles.conteudo} showsVerticalScrollIndicator={false}>
-          {/* Aviso de Confidencialidade */}
-          <View style={styles.avisoSeguranca}>
-            <Ionicons name="lock-closed" size={18} color="#A78BFA" />
-            <Text style={styles.avisoTexto}>
-              Registro estritamente criptografado e salvo com segurança em seu dispositivo.
+        <ScrollView
+          style={styles.conteudo}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.secao}>
+            <Text style={styles.label}>Nível de perigo (1 a 10)</Text>
+            <View style={styles.niveisGrid}>
+              {NIVEIS_PERIGO.map((nivel) => {
+                const cor = corDoPerigo(nivel);
+                const selecionado = nivelPerigo === nivel;
+                return (
+                  <TouchableOpacity
+                    key={nivel}
+                    style={[
+                      styles.botaoNivel,
+                      { borderColor: cor },
+                      selecionado && { backgroundColor: cor },
+                    ]}
+                    onPress={() => setNivelPerigo(nivel)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Perigo ${nivel}`}
+                  >
+                    <Text style={[styles.textoNivel, { color: selecionado ? '#FFFFFF' : cor }]}>
+                      {nivel}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <Text style={styles.legendaNivel}>
+              {nivelPerigo
+                ? `${nivelPerigo}/10 · ${rotuloDoPerigo(nivelPerigo)}`
+                : '1 = situação tranquila · 10 = risco extremo'}
             </Text>
           </View>
 
-          {/* Tipo de Violência */}
           <View style={styles.secao}>
-            <Text style={styles.label}>Tipo de Violência</Text>
-            <View style={styles.chipsContainer}>
-              {TIPOS_VIOLENCIA.map((tipo) => {
-                const ativo = tipoViolencia === tipo;
-                return (
-                  <TouchableOpacity
-                    key={tipo}
-                    style={[styles.chipTipo, ativo && styles.chipTipoAtivo]}
-                    onPress={() => setTipoViolencia(tipo)}
-                  >
-                    <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>
-                      {tipo}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Nível de Risco (1 a 5) */}
-          <View style={styles.secao}>
-            <Text style={styles.label}>Nível de Gravidade / Risco</Text>
-            <View style={styles.niveisGrid}>
-              {NIVEIS_RISCO.map((item) => {
-                const selecionado = nivelRisco === item.nivel;
-                return (
-                  <TouchableOpacity
-                    key={item.nivel}
-                    style={[
-                      styles.botaoNivel,
-                      { borderColor: item.cor },
-                      selecionado && { backgroundColor: item.cor },
-                    ]}
-                    onPress={() => setNivelRisco(item.nivel)}
-                  >
-                    <Text
-                      style={[
-                        styles.textoNivel,
-                        { color: selecionado ? '#FFFFFF' : item.cor },
-                      ]}
-                    >
-                      {item.rotulo}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Data e Horário */}
-          <View style={styles.secao}>
-            <Text style={styles.label}>Data e Hora do Acontecido</Text>
-            <TextInput
-              style={styles.input}
-              value={dataOcorrencia}
-              onChangeText={setDataOcorrencia}
-              placeholder="AAAA-MM-DD HH:MM"
-              placeholderTextColor="#64748B"
-            />
-          </View>
-
-          {/* Local */}
-          <View style={styles.secao}>
-            <Text style={styles.label}>Local do Fato</Text>
+            <Text style={styles.label}>Local (opcional)</Text>
             <TextInput
               style={styles.input}
               value={local}
               onChangeText={setLocal}
-              placeholder="Ex: Residência, local de trabalho, via pública"
+              placeholder="Ex: em casa, no trabalho, na rua"
               placeholderTextColor="#64748B"
             />
           </View>
 
-          {/* Relato / Descrição */}
           <View style={styles.secao}>
-            <Text style={styles.label}>Descrição Detalhada do Fato</Text>
+            <Text style={styles.label}>O que aconteceu (opcional)</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={descricao}
               onChangeText={setDescricao}
-              placeholder="Relate com suas palavras o que aconteceu, o que foi dito ou realizado..."
+              placeholder="Conte com suas palavras..."
               placeholderTextColor="#64748B"
               multiline
               numberOfLines={5}
-            />
-          </View>
-
-          {/* Anexar Evidência */}
-          <View style={styles.secao}>
-            <Text style={styles.label}>Anexar Evidência (Opcional)</Text>
-            <View style={styles.tipoEvidenciaLinha}>
-              {[
-                { id: 'audio', nome: 'Áudio gravado', icone: 'mic-outline' },
-                { id: 'foto', nome: 'Foto / Print', icone: 'image-outline' },
-                { id: 'doc', nome: 'Documento', icone: 'document-text-outline' },
-              ].map((ev) => {
-                const ativo = tipoEvidencia === ev.id;
-                return (
-                  <TouchableOpacity
-                    key={ev.id}
-                    style={[styles.btnTipoEv, ativo && styles.btnTipoEvAtivo]}
-                    onPress={() => setTipoEvidencia(ev.id)}
-                  >
-                    <Ionicons
-                      name={ev.icone}
-                      size={18}
-                      color={ativo ? '#A78BFA' : '#94A3B8'}
-                    />
-                    <Text style={[styles.txtTipoEv, ativo && styles.txtTipoEvAtivo]}>
-                      {ev.nome}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <TextInput
-              style={[styles.input, { marginTop: 10 }]}
-              value={nomeEvidencia}
-              onChangeText={setNomeEvidencia}
-              placeholder="Nome ou descrição do arquivo de prova"
-              placeholderTextColor="#64748B"
             />
           </View>
 
@@ -240,10 +143,7 @@ export default function NovaOcorrenciaModal({ visivel, aoFechar }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
+  safeArea: { flex: 1, backgroundColor: '#0F172A' },
   header: {
     height: 60,
     flexDirection: 'row',
@@ -253,105 +153,38 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
   },
-  botaoFechar: {
-    padding: 8,
-  },
-  headerTitulo: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F8FAFC',
-  },
-  acoesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
+  botaoFechar: { padding: 8 },
+  headerTitulo: { fontSize: 18, fontWeight: '700', color: '#F8FAFC' },
+  acoesHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   botaoSalvar: {
     backgroundColor: '#7C3AED',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  textoSalvar: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  conteudo: {
-    flex: 1,
-    paddingHorizontal: 18,
-    paddingTop: 16,
-  },
-  avisoSeguranca: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.3)',
-    borderRadius: 10,
-    padding: 12,
-    gap: 10,
-    marginBottom: 20,
-  },
-  avisoTexto: {
-    flex: 1,
-    fontSize: 12,
-    color: '#DDD6FE',
-    lineHeight: 18,
-  },
-  secao: {
-    marginBottom: 20,
-  },
+  textoSalvar: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
+  conteudo: { flex: 1, paddingHorizontal: 18, paddingTop: 20 },
+  secao: { marginBottom: 22 },
   label: {
     fontSize: 13,
     fontWeight: '600',
     color: '#94A3B8',
-    marginBottom: 8,
+    marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  chipsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chipTipo: {
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  chipTipoAtivo: {
-    backgroundColor: '#7C3AED',
-    borderColor: '#A78BFA',
-  },
-  chipTexto: {
-    fontSize: 13,
-    color: '#CBD5E1',
-    fontWeight: '500',
-  },
-  chipTextoAtivo: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  niveisGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
+  niveisGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   botaoNivel: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1.5,
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 2,
     backgroundColor: '#1E293B',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  textoNivel: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
+  textoNivel: { fontSize: 18, fontWeight: '800' },
+  legendaNivel: { color: '#94A3B8', fontSize: 12, marginTop: 10 },
   input: {
     backgroundColor: '#1E293B',
     borderWidth: 1,
@@ -362,36 +195,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#F8FAFC',
   },
-  textArea: {
-    minHeight: 110,
-    textAlignVertical: 'top',
-  },
-  tipoEvidenciaLinha: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  btnTipoEv: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  btnTipoEvAtivo: {
-    borderColor: '#A78BFA',
-    backgroundColor: 'rgba(124, 58, 237, 0.2)',
-  },
-  txtTipoEv: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-  txtTipoEvAtivo: {
-    color: '#DDD6FE',
-  },
+  textArea: { minHeight: 110, textAlignVertical: 'top' },
 });

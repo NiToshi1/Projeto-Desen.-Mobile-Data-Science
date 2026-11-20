@@ -17,6 +17,7 @@ export default function HeaderGoogleCalendar({
   aoBuscar,
   aoAbrirMenu,
   aoAbrirPerfil,
+  aoIrParaHoje,
 }) {
   return (
     <View style={styles.container}>
@@ -40,7 +41,12 @@ export default function HeaderGoogleCalendar({
           <Ionicons name="search" size={22} color="#5F6368" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.botaoHoje} hitSlop={8}>
+        <TouchableOpacity
+          style={styles.botaoHoje}
+          onPress={aoIrParaHoje || (() => {})}
+          hitSlop={8}
+          accessibilityLabel="Ir para hoje"
+        >
           <Ionicons name="calendar-outline" size={20} color="#5F6368" />
         </TouchableOpacity>
 

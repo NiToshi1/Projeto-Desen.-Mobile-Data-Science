@@ -13,7 +13,7 @@ import {
 import { alertar } from '../../utils/alerta';
 import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { salvarContato } from '../../store/ocorrenciasSlice';
+import { salvarGuardiao } from '../../store/ocorrenciasSlice';
 import BotaoSaidaRapida from '../../components/BotaoSaidaRapida';
 
 export default function NovoContatoModal({ visivel, aoFechar }) {
@@ -34,12 +34,11 @@ export default function NovoContatoModal({ visivel, aoFechar }) {
       nome: nome.trim(),
       parentesco: parentesco.trim() || 'Apoio de Confiança',
       telefone: telefone.trim(),
-      contato_confianca: true,
       prioridade,
     };
 
     try {
-      await dispatch(salvarContato(novoContato)).unwrap();
+      await dispatch(salvarGuardiao(novoContato)).unwrap();
     } catch (e) {
       alertar('Não foi possível salvar', e.message);
       return;

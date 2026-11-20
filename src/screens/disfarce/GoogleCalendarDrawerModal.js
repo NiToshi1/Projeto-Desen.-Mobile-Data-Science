@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { CATEGORIAS, VISUALIZACOES } from '../../constants/agenda';
 
 export default function GoogleCalendarDrawerModal({
   visivel,
@@ -17,6 +18,8 @@ export default function GoogleCalendarDrawerModal({
   aoAbrirConfiguracoes,
   aoSelecionarVisualizacao,
   visualizacaoAtual = 'Mês',
+  categoriasOcultas = [],
+  aoAlternarCategoria,
 }) {
   return (
     <Modal
@@ -44,13 +47,7 @@ export default function GoogleCalendarDrawerModal({
 
             {/* Visualizações da Agenda */}
             <View style={styles.secao}>
-              {[
-                { nome: 'Programação', icone: 'list-outline' },
-                { nome: 'Dia', icone: 'today-outline' },
-                { nome: '3 Dias', icone: 'calendar-clear-outline' },
-                { nome: 'Semana', icone: 'grid-outline' },
-                { nome: 'Mês', icone: 'calendar' },
-              ].map((item) => {
+              {VISUALIZACOES.map((item) => {
                 const ativo = visualizacaoAtual === item.nome;
                 return (
                   <TouchableOpacity
@@ -86,24 +83,32 @@ export default function GoogleCalendarDrawerModal({
             {/* Minhas Agendas */}
             <View style={styles.secao}>
               <Text style={styles.secaoTitulo}>Minhas Agendas</Text>
-              {[
-                { nome: 'Eventos (Fernando)', cor: '#1A73E8' },
-                { nome: 'Tarefas (Google Tasks)', cor: '#0F9D58' },
-                { nome: 'Aniversários', cor: '#8E24AA' },
-                { nome: 'Feriados no Brasil', cor: '#00897B' },
-              ].map((agenda) => (
-                <View key={agenda.nome} style={styles.itemAgenda}>
-                  <View
-                    style={[
-                      styles.checkboxAgenda,
-                      { borderColor: agenda.cor, backgroundColor: agenda.cor },
-                    ]}
+              {CATEGORIAS.map((agenda) => {
+                const visivelNaAgenda = !categoriasOcultas.includes(agenda.categoria);
+                return (
+                  <TouchableOpacity
+                    key={agenda.categoria}
+                    style={styles.itemAgenda}
+                    onPress={() => aoAlternarCategoria?.(agenda.categoria)}
+                    activeOpacity={0.7}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: visivelNaAgenda }}
                   >
-                    <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.itemAgendaTexto}>{agenda.nome}</Text>
-                </View>
-              ))}
+                    <View
+                      style={[
+                        styles.checkboxAgenda,
+                        {
+                          borderColor: agenda.cor,
+                          backgroundColor: visivelNaAgenda ? agenda.cor : 'transparent',
+                        },
+                      ]}
+                    >
+                      {visivelNaAgenda && <Ionicons name="checkmark" size={12} color="#FFFFFF" />}
+                    </View>
+                    <Text style={styles.itemAgendaTexto}>{agenda.categoria}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <View style={styles.divisor} />

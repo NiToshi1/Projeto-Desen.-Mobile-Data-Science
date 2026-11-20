@@ -55,7 +55,7 @@ O app descobre sozinho o endereço da API: usa o mesmo IP do computador que serv
 (celular e computador na **mesma rede Wi-Fi**). Para forçar outro endereço, copie
 `.env.example` para `.env` e ajuste `EXPO_PUBLIC_API_URL` (reinicie o app depois).
 
-Testes da API: `cd api && npm test`.
+Testes da API: `cd api && npm test` (19 testes de integração).
 
 ## Disfarce: entrada e saída rápida
 

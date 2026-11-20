@@ -1,15 +1,14 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import * as api from '../services/api';
+import * as banco from '../services/banco';
 import { sairEspacoSeguro } from './authSlice';
 
 // ============================================================
-// Slice do Espaço Seguro (Área Real) — dados vindos da API.
-// Ocorrências (com evidências e encaminhamentos aninhados), contatos
-// de confiança e rede de apoio especializada.
+// Slice do Espaço Seguro (Área Real) — dados vindos do banco (Supabase).
+// Ocorrências (com nível de perigo de 1 a 10) e guardiões de confiança.
 //
 // Segurança: ao acionar a saída rápida, todo o conteúdo sensível é
-// apagado da memória do app (ver extraReducers). Ele é recarregado da
-// API na próxima entrada. Respostas que chegam depois da saída são
+// apagado da memória do app (ver extraReducers). Ele é recarregado do
+// banco na próxima entrada. Respostas que chegam depois da saída são
 // descartadas (SESSAO_ENCERRADA), para nada reaparecer no disfarce.
 // ============================================================
 
@@ -17,25 +16,10 @@ const SESSAO_ENCERRADA = 'sessao_encerrada';
 
 const initialState = {
   ocorrencias: [],
-  contatos: [],
-  servicosApoio: [],
+  guardioes: [],
   carregando: false,
   erro: null,
 };
-
-// Junta evidências e encaminhamentos dentro de cada ocorrência.
-function compor(ocorrencias, evidencias, encaminhamentos, servicos) {
-  return ocorrencias.map((oc) => ({
-    ...oc,
-    evidencias: evidencias.filter((e) => e.ocorrenciaId === oc.id),
-    encaminhamentos: encaminhamentos
-      .filter((e) => e.ocorrenciaId === oc.id)
-      .map((e) => ({
-        ...e,
-        servico: servicos.find((s) => s.id === e.servicoId)?.nome ?? 'Serviço removido',
-      })),
-  }));
-}
 
 const sessaoAtiva = (getState) => getState().auth.estaAutenticado;
 
@@ -43,94 +27,60 @@ const sessaoAtiva = (getState) => getState().auth.estaAutenticado;
 export const carregarEspacoSeguro = createAsyncThunk(
   'ocorrencias/carregar',
   async (_, { getState, rejectWithValue }) => {
-    const [ocorrencias, evidencias, encaminhamentos, contatos, servicos] = await Promise.all([
-      api.listarOcorrencias(),
-      api.listarEvidencias(),
-      api.listarEncaminhamentos(),
-      api.listarContatos(),
-      api.listarServicos(),
+    const [ocorrencias, guardioes] = await Promise.all([
+      banco.listarOcorrencias(),
+      banco.listarGuardioes(),
     ]);
     if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
-    return {
-      ocorrencias: compor(ocorrencias, evidencias, encaminhamentos, servicos),
-      contatos,
-      servicosApoio: servicos,
-    };
+    return { ocorrencias, guardioes };
   }
 );
 
-// Cria a ocorrência e, se houver, a evidência ligada a ela (relacionamento
-// validado pela API: a evidência só é aceita se a ocorrência existir).
 export const salvarOcorrencia = createAsyncThunk(
   'ocorrencias/salvar',
-  async ({ ocorrencia, evidencia }, { getState, rejectWithValue }) => {
-    const criada = await api.criarOcorrencia(ocorrencia);
-    const evidencias = evidencia
-      ? [await api.criarEvidencia({ ...evidencia, ocorrenciaId: criada.id })]
-      : [];
+  async (ocorrencia, { getState, rejectWithValue }) => {
+    const criada = await banco.criarOcorrencia(ocorrencia);
     if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
-    return { ...criada, evidencias, encaminhamentos: [] };
-  }
-);
-
-export const atualizarNivelRisco = createAsyncThunk(
-  'ocorrencias/atualizarNivel',
-  async ({ id, nivel_risco }, { getState, rejectWithValue }) => {
-    const atualizada = await api.atualizarOcorrencia(id, { nivel_risco });
-    if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
-    return atualizada;
+    return criada;
   }
 );
 
 export const excluirOcorrencia = createAsyncThunk('ocorrencias/excluir', async (id) => {
-  await api.removerOcorrencia(id);
+  await banco.removerOcorrencia(id);
   return id;
 });
 
-export const salvarContato = createAsyncThunk(
-  'contatos/salvar',
-  async (contato, { getState, rejectWithValue }) => {
-    await api.criarContato(contato);
-    // A API garante "só um contato prioritário": recarrega a lista inteira.
-    const contatos = await api.listarContatos();
+// Depois de gravar um guardião, recarrega a lista: o banco decide a ordem e
+// garante "só um guardião com prioridade".
+export const salvarGuardiao = createAsyncThunk(
+  'guardioes/salvar',
+  async (guardiao, { getState, rejectWithValue }) => {
+    await banco.criarGuardiao(guardiao);
+    const guardioes = await banco.listarGuardioes();
     if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
-    return contatos;
+    return guardioes;
   }
 );
 
-export const alternarPrioridadeContato = createAsyncThunk(
-  'contatos/prioridade',
+export const alternarPrioridadeGuardiao = createAsyncThunk(
+  'guardioes/prioridade',
   async (id, { getState, rejectWithValue }) => {
-    const atual = getState().ocorrencias.contatos.find((c) => c.id === id);
-    await api.atualizarContato(id, { prioridade: !atual?.prioridade });
-    const contatos = await api.listarContatos();
+    const atual = getState().ocorrencias.guardioes.find((g) => g.id === id);
+    await banco.definirPrioridadeGuardiao(id, !atual?.prioridade);
+    const guardioes = await banco.listarGuardioes();
     if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
-    return contatos;
+    return guardioes;
   }
 );
 
-export const excluirContato = createAsyncThunk('contatos/excluir', async (id) => {
-  await api.removerContato(id);
-  return id;
-});
-
-export const salvarServico = createAsyncThunk(
-  'servicos/salvar',
-  async (servico, { getState, rejectWithValue }) => {
-    const criado = await api.criarServico(servico);
-    if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
-    return criado;
-  }
-);
-
-export const excluirServico = createAsyncThunk('servicos/excluir', async (id) => {
-  await api.removerServico(id);
+export const excluirGuardiao = createAsyncThunk('guardioes/excluir', async (id) => {
+  await banco.removerGuardiao(id);
   return id;
 });
 
 const registrarErro = (state, action) => {
   if (action.payload === SESSAO_ENCERRADA) return;
-  state.erro = action.error?.message || 'Falha ao comunicar com o servidor.';
+  state.erro = action.error?.message || 'Falha ao comunicar com o banco de dados.';
 };
 
 export const ocorrenciasSlice = createSlice({
@@ -160,40 +110,23 @@ export const ocorrenciasSlice = createSlice({
       .addCase(salvarOcorrencia.fulfilled, (state, action) => {
         state.ocorrencias.unshift(action.payload);
       })
-      .addCase(atualizarNivelRisco.fulfilled, (state, action) => {
-        const oc = state.ocorrencias.find((o) => o.id === action.payload.id);
-        if (oc) oc.nivel_risco = action.payload.nivel_risco;
-      })
       .addCase(excluirOcorrencia.fulfilled, (state, action) => {
         state.ocorrencias = state.ocorrencias.filter((o) => o.id !== action.payload);
       })
-      .addCase(salvarContato.fulfilled, (state, action) => {
-        state.contatos = action.payload;
+      .addCase(salvarGuardiao.fulfilled, (state, action) => {
+        state.guardioes = action.payload;
       })
-      .addCase(alternarPrioridadeContato.fulfilled, (state, action) => {
-        state.contatos = action.payload;
+      .addCase(alternarPrioridadeGuardiao.fulfilled, (state, action) => {
+        state.guardioes = action.payload;
       })
-      .addCase(excluirContato.fulfilled, (state, action) => {
-        state.contatos = state.contatos.filter((c) => c.id !== action.payload);
-      })
-      .addCase(salvarServico.fulfilled, (state, action) => {
-        state.servicosApoio.push(action.payload);
-      })
-      .addCase(excluirServico.fulfilled, (state, action) => {
-        state.servicosApoio = state.servicosApoio.filter((s) => s.id !== action.payload);
-        // A API apaga em cascata os encaminhamentos que usavam o serviço: espelhamos isso aqui.
-        state.ocorrencias.forEach((oc) => {
-          oc.encaminhamentos = oc.encaminhamentos.filter((e) => e.servicoId !== action.payload);
-        });
+      .addCase(excluirGuardiao.fulfilled, (state, action) => {
+        state.guardioes = state.guardioes.filter((g) => g.id !== action.payload);
       })
       .addCase(salvarOcorrencia.rejected, registrarErro)
-      .addCase(atualizarNivelRisco.rejected, registrarErro)
       .addCase(excluirOcorrencia.rejected, registrarErro)
-      .addCase(salvarContato.rejected, registrarErro)
-      .addCase(alternarPrioridadeContato.rejected, registrarErro)
-      .addCase(excluirContato.rejected, registrarErro)
-      .addCase(salvarServico.rejected, registrarErro)
-      .addCase(excluirServico.rejected, registrarErro);
+      .addCase(salvarGuardiao.rejected, registrarErro)
+      .addCase(alternarPrioridadeGuardiao.rejected, registrarErro)
+      .addCase(excluirGuardiao.rejected, registrarErro);
   },
 });
 
