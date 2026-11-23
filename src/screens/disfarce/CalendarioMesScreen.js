@@ -8,11 +8,10 @@ import {
   SafeAreaView,
   TextInput,
 } from 'react-native';
+import { useNavigation } from 'expo-router';
 import { useSelector } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import HeaderGoogleCalendar from '../../components/HeaderGoogleCalendar';
-import GoogleCalendarDrawerModal from './GoogleCalendarDrawerModal';
-import ConfiguracoesDisfarceModal from './ConfiguracoesDisfarceModal';
 import NovoEventoModal from './NovoEventoModal';
 import DetalheEventoModal from './DetalheEventoModal';
 import {
@@ -31,9 +30,8 @@ import {
 
 // ============================================================
 // Tela 1: Calendário (Disfarce) — reproduz o Google Agenda.
-// Visualizações: Programação, Dia, 3 Dias, Semana e Mês.
-// Setas e botão "Hoje" navegam; a busca procura em todos os eventos;
-// as categorias do menu lateral (Minhas agendas) mostram/ocultam eventos.
+// Visualizações: Semana e Mês (escolhidas no menu lateral).
+// Setas e botão "Hoje" navegam; a busca procura em todos os eventos.
 // Permite abrir menu lateral, novo evento, detalhes e configurações (PIN 1234).
 // ============================================================
 
@@ -41,7 +39,7 @@ const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
 const porDataEHora = (a, b) =>
   a.data === b.data
-    ? (a.horaInicio || '').localeCompare(b.horaInicio || '')
+    ? (a.hora_inicio || '').localeCompare(b.hora_inicio || '')
     : a.data.localeCompare(b.data);
 
 function CartaoEvento({ evento, aoAbrir, mostrarData }) {
@@ -58,7 +56,7 @@ function CartaoEvento({ evento, aoAbrir, mostrarData }) {
           <Ionicons name="time-outline" size={14} color="#5F6368" />
           <Text style={styles.eventoHorario}>
             {mostrarData ? `${rotuloDia(deIso(evento.data))} · ` : ''}
-            {evento.horaInicio || '--:--'} - {evento.horaFim || '--:--'}
+            {evento.hora_inicio || '--:--'} - {evento.hora_fim || '--:--'}
           </Text>
         </View>
         {evento.local ? (
@@ -77,7 +75,7 @@ function CartaoEvento({ evento, aoAbrir, mostrarData }) {
   );
 }
 
-// Um dia com os seus eventos (usado em Dia, 3 Dias, Semana e abaixo da grade do mês).
+// Um dia com os seus eventos (usado na Semana e abaixo da grade do mês).
 function SecaoDia({ data, eventos, aoAbrir, aoEscolher, vazioDetalhado }) {
   const ehHoje = mesmoDia(data, hoje());
   return (
@@ -114,51 +112,28 @@ function SecaoDia({ data, eventos, aoAbrir, aoEscolher, vazioDetalhado }) {
   );
 }
 
-export default function CalendarioMesScreen({ navigation = {} }) {
+export default function CalendarioMesScreen() {
+  const navigation = useNavigation();
   const todosEventos = useSelector((state) => state.agenda.eventos);
+  // Escolhida no menu lateral (Drawer), por isso fica no Redux.
+  const visualizacao = useSelector((state) => state.agenda.visualizacao);
 
   const [dataFoco, setDataFoco] = useState(hoje);
-  const [visualizacao, setVisualizacao] = useState('Mês');
-  const [categoriasOcultas, setCategoriasOcultas] = useState([]);
   const [buscaAberta, setBuscaAberta] = useState(false);
   const [termo, setTermo] = useState('');
 
-  const [menuAberto, setMenuAberto] = useState(false);
-  const [configuracoesAbertas, setConfiguracoesAbertas] = useState(false);
   const [novoEventoAberto, setNovoEventoAberto] = useState(false);
   const [eventoSelecionado, setEventoSelecionado] = useState(null);
 
-  // Só os eventos das agendas (categorias) que estão marcadas, em ordem de data e hora.
-  const eventos = useMemo(
-    () =>
-      todosEventos
-        .filter((ev) => !categoriasOcultas.includes(ev.categoria))
-        .slice()
-        .sort(porDataEHora),
-    [todosEventos, categoriasOcultas]
-  );
+  // Todos os eventos, em ordem de data e hora.
+  const eventos = useMemo(() => todosEventos.slice().sort(porDataEHora), [todosEventos]);
 
   const eventosDoDia = (data) => eventos.filter((ev) => ev.data === paraIso(data));
   const datasComEvento = useMemo(() => new Set(eventos.map((ev) => ev.data)), [eventos]);
 
-  // Anterior / próximo respeitam a visualização: mês pula 1 mês, semana 7 dias etc.
-  const mover = (sentido) => {
-    switch (visualizacao) {
-      case 'Mês':
-        return setDataFoco((d) => somarMeses(d, sentido));
-      case 'Semana':
-        return setDataFoco((d) => somarDias(d, 7 * sentido));
-      case '3 Dias':
-        return setDataFoco((d) => somarDias(d, 3 * sentido));
-      default:
-        return setDataFoco((d) => somarDias(d, sentido));
-    }
-  };
-
-  const alternarCategoria = (categoria) =>
-    setCategoriasOcultas((atuais) =>
-      atuais.includes(categoria) ? atuais.filter((c) => c !== categoria) : [...atuais, categoria]
-    );
+  // Anterior / próximo respeitam a visualização: mês pula 1 mês, semana 7 dias.
+  const mover = (sentido) =>
+    setDataFoco((d) => (visualizacao === 'Mês' ? somarMeses(d, sentido) : somarDias(d, 7 * sentido)));
 
   const fecharBusca = () => {
     setBuscaAberta(false);
@@ -166,14 +141,8 @@ export default function CalendarioMesScreen({ navigation = {} }) {
   };
 
   const rotuloPeriodo = (() => {
-    if (visualizacao === 'Mês') return 'Mês';
-    if (visualizacao === 'Semana') {
-      const ini = inicioDaSemana(dataFoco);
-      return rotuloIntervalo(ini, somarDias(ini, 6));
-    }
-    if (visualizacao === '3 Dias') return rotuloIntervalo(dataFoco, somarDias(dataFoco, 2));
-    if (visualizacao === 'Programação') return `A partir de ${rotuloIntervalo(dataFoco, dataFoco).split(' – ')[0]}`;
-    return rotuloDia(dataFoco);
+    const ini = inicioDaSemana(dataFoco);
+    return rotuloIntervalo(ini, somarDias(ini, 6));
   })();
 
   const termoLimpo = termo.trim().toLowerCase();
@@ -259,42 +228,16 @@ export default function CalendarioMesScreen({ navigation = {} }) {
       );
     }
 
-    if (visualizacao === 'Programação') {
-      const proximos = eventos.filter((ev) => ev.data >= paraIso(dataFoco));
-      const datas = [...new Set(proximos.map((ev) => ev.data))];
-      if (datas.length === 0) {
-        return (
-          <View style={styles.secaoEventos}>
-            <View style={styles.semEventosCard}>
-              <Ionicons name="calendar-outline" size={32} color="#9AA0A6" />
-              <Text style={styles.semEventosTexto}>Nenhum evento a partir desta data</Text>
-              <Text style={styles.semEventosSub}>Toque no botão + para criar um novo compromisso</Text>
-            </View>
-          </View>
-        );
-      }
-      return datas.map((iso) => (
-        <SecaoDia
-          key={iso}
-          data={deIso(iso)}
-          eventos={proximos.filter((ev) => ev.data === iso)}
-          aoAbrir={abrirEvento}
-        />
-      ));
-    }
-
-    const quantidade = visualizacao === 'Dia' ? 1 : visualizacao === '3 Dias' ? 3 : 7;
-    const inicio = visualizacao === 'Semana' ? inicioDaSemana(dataFoco) : dataFoco;
-    return Array.from({ length: quantidade }, (_, i) => {
-      const data = somarDias(inicio, i);
+    // Semana: sete dias, do começo da semana de dataFoco.
+    return Array.from({ length: 7 }, (_, i) => {
+      const data = somarDias(inicioDaSemana(dataFoco), i);
       return (
         <SecaoDia
           key={paraIso(data)}
           data={data}
           eventos={eventosDoDia(data)}
           aoAbrir={abrirEvento}
-          aoEscolher={quantidade > 1 ? () => setDataFoco(data) : undefined}
-          vazioDetalhado={quantidade === 1}
+          aoEscolher={() => setDataFoco(data)}
         />
       );
     });
@@ -305,8 +248,7 @@ export default function CalendarioMesScreen({ navigation = {} }) {
       <HeaderGoogleCalendar
         navigation={navigation}
         titulo={tituloMes(dataFoco)}
-        aoAbrirMenu={() => setMenuAberto(true)}
-        aoAbrirPerfil={() => setConfiguracoesAbertas(true)}
+        aoAbrirMenu={() => navigation.openDrawer()}
         aoBuscar={() => (buscaAberta ? fecharBusca() : setBuscaAberta(true))}
         aoIrParaHoje={() => setDataFoco(hoje())}
       />
@@ -349,27 +291,13 @@ export default function CalendarioMesScreen({ navigation = {} }) {
       {/* Botão Flutuante (FAB) do Google Calendar */}
       <TouchableOpacity
         style={styles.fab}
+        accessibilityRole="button"
+        accessibilityLabel="Novo evento"
         onPress={() => setNovoEventoAberto(true)}
         activeOpacity={0.85}
       >
         <Ionicons name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
-
-      {/* Modais de Suporte do Disfarce */}
-      <GoogleCalendarDrawerModal
-        visivel={menuAberto}
-        aoFechar={() => setMenuAberto(false)}
-        aoAbrirConfiguracoes={() => setConfiguracoesAbertas(true)}
-        visualizacaoAtual={visualizacao}
-        aoSelecionarVisualizacao={setVisualizacao}
-        categoriasOcultas={categoriasOcultas}
-        aoAlternarCategoria={alternarCategoria}
-      />
-
-      <ConfiguracoesDisfarceModal
-        visivel={configuracoesAbertas}
-        aoFechar={() => setConfiguracoesAbertas(false)}
-      />
 
       {/* A key remonta o modal a cada abertura: a data volta a ser o dia selecionado e os campos limpam. */}
       <NovoEventoModal

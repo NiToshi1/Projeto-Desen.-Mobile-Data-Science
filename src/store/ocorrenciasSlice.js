@@ -1,14 +1,14 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import * as banco from '../services/banco';
+import * as api from '../services/api';
 import { sairEspacoSeguro } from './authSlice';
 
 // ============================================================
-// Slice do Espaço Seguro (Área Real) — dados vindos do banco (Supabase).
+// Slice do Espaço Seguro (Área Real) — dados vindos da API.
 // Ocorrências (com nível de perigo de 1 a 10) e guardiões de confiança.
 //
 // Segurança: ao acionar a saída rápida, todo o conteúdo sensível é
-// apagado da memória do app (ver extraReducers). Ele é recarregado do
-// banco na próxima entrada. Respostas que chegam depois da saída são
+// apagado da memória do app (ver extraReducers). Ele é recarregado da
+// API na próxima entrada. Respostas que chegam depois da saída são
 // descartadas (SESSAO_ENCERRADA), para nada reaparecer no disfarce.
 // ============================================================
 
@@ -28,8 +28,8 @@ export const carregarEspacoSeguro = createAsyncThunk(
   'ocorrencias/carregar',
   async (_, { getState, rejectWithValue }) => {
     const [ocorrencias, guardioes] = await Promise.all([
-      banco.listarOcorrencias(),
-      banco.listarGuardioes(),
+      api.listarOcorrencias(),
+      api.listarGuardioes(),
     ]);
     if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
     return { ocorrencias, guardioes };
@@ -39,24 +39,24 @@ export const carregarEspacoSeguro = createAsyncThunk(
 export const salvarOcorrencia = createAsyncThunk(
   'ocorrencias/salvar',
   async (ocorrencia, { getState, rejectWithValue }) => {
-    const criada = await banco.criarOcorrencia(ocorrencia);
+    const criada = await api.criarOcorrencia(ocorrencia);
     if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
     return criada;
   }
 );
 
 export const excluirOcorrencia = createAsyncThunk('ocorrencias/excluir', async (id) => {
-  await banco.removerOcorrencia(id);
+  await api.removerOcorrencia(id);
   return id;
 });
 
-// Depois de gravar um guardião, recarrega a lista: o banco decide a ordem e
+// Depois de gravar um guardião, recarrega a lista: a API decide a ordem e
 // garante "só um guardião com prioridade".
 export const salvarGuardiao = createAsyncThunk(
   'guardioes/salvar',
   async (guardiao, { getState, rejectWithValue }) => {
-    await banco.criarGuardiao(guardiao);
-    const guardioes = await banco.listarGuardioes();
+    await api.criarGuardiao(guardiao);
+    const guardioes = await api.listarGuardioes();
     if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
     return guardioes;
   }
@@ -66,21 +66,21 @@ export const alternarPrioridadeGuardiao = createAsyncThunk(
   'guardioes/prioridade',
   async (id, { getState, rejectWithValue }) => {
     const atual = getState().ocorrencias.guardioes.find((g) => g.id === id);
-    await banco.definirPrioridadeGuardiao(id, !atual?.prioridade);
-    const guardioes = await banco.listarGuardioes();
+    await api.atualizarGuardiao(id, { prioridade: !atual?.prioridade });
+    const guardioes = await api.listarGuardioes();
     if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
     return guardioes;
   }
 );
 
 export const excluirGuardiao = createAsyncThunk('guardioes/excluir', async (id) => {
-  await banco.removerGuardiao(id);
+  await api.removerGuardiao(id);
   return id;
 });
 
 const registrarErro = (state, action) => {
   if (action.payload === SESSAO_ENCERRADA) return;
-  state.erro = action.error?.message || 'Falha ao comunicar com o banco de dados.';
+  state.erro = action.error?.message || 'Falha ao comunicar com o servidor.';
 };
 
 export const ocorrenciasSlice = createSlice({
@@ -121,6 +121,10 @@ export const ocorrenciasSlice = createSlice({
       })
       .addCase(excluirGuardiao.fulfilled, (state, action) => {
         state.guardioes = state.guardioes.filter((g) => g.id !== action.payload);
+        // A API mantém as ocorrências e zera o guardião delas: espelhamos isso aqui.
+        state.ocorrencias.forEach((o) => {
+          if (o.guardiao_id === action.payload) o.guardiao_id = null;
+        });
       })
       .addCase(salvarOcorrencia.rejected, registrarErro)
       .addCase(excluirOcorrencia.rejected, registrarErro)

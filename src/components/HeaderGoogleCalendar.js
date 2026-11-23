@@ -16,7 +16,6 @@ export default function HeaderGoogleCalendar({
   titulo = 'Outubro de 2026',
   aoBuscar,
   aoAbrirMenu,
-  aoAbrirPerfil,
   aoIrParaHoje,
 }) {
   return (
@@ -25,6 +24,8 @@ export default function HeaderGoogleCalendar({
         <TouchableOpacity
           style={styles.botaoIcone}
           onPress={aoAbrirMenu || (() => navigation?.openDrawer?.())}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir menu"
           hitSlop={12}
         >
           <Ionicons name="menu" size={26} color="#3C4043" />
@@ -36,6 +37,8 @@ export default function HeaderGoogleCalendar({
         <TouchableOpacity
           style={styles.botaoIcone}
           onPress={aoBuscar || (() => {})}
+          accessibilityRole="button"
+          accessibilityLabel="Buscar eventos"
           hitSlop={8}
         >
           <Ionicons name="search" size={22} color="#5F6368" />
@@ -50,14 +53,10 @@ export default function HeaderGoogleCalendar({
           <Ionicons name="calendar-outline" size={20} color="#5F6368" />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.avatar}
-          onPress={aoAbrirPerfil || (() => {})}
-          hitSlop={8}
-          activeOpacity={0.8}
-        >
+        {/* Avatar apenas visual (sem ação), como no disfarce de agenda. */}
+        <View style={styles.avatar} accessible={false}>
           <Text style={styles.avatarTexto}>F</Text>
-        </TouchableOpacity>
+        </View>
       </View>
     </View>
   );

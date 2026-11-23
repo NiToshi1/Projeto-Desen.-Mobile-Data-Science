@@ -1,30 +1,37 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import * as banco from '../services/banco';
+import * as api from '../services/api';
 
 // ============================================================
-// Slice da Agenda (Disfarce): eventos do "Google Calendar" lidos e
-// gravados no banco (Supabase). Se o banco estiver fora do ar, a agenda
-// simplesmente fica vazia — o disfarce nunca exibe mensagens de erro na
-// tela que denunciem o app (só ao tentar salvar um evento).
+// Slice da Agenda (Disfarce): eventos do "Google Calendar" vindos da
+// API, mais a visualização (Semana ou Mês) escolhida no menu lateral,
+// que o Drawer e a tela do calendário compartilham.
+// Se a API estiver fora do ar, a agenda simplesmente fica vazia — o
+// disfarce nunca exibe mensagens de erro na tela que denunciem o app
+// (só ao tentar salvar um evento).
 // ============================================================
 
 const initialState = {
   eventos: [],
+  visualizacao: 'Mês', // Semana | Mês
 };
 
-export const carregarEventos = createAsyncThunk('agenda/carregar', () => banco.listarEventos());
+export const carregarEventos = createAsyncThunk('agenda/carregar', () => api.listarEventos());
 
-export const salvarEvento = createAsyncThunk('agenda/salvar', (evento) => banco.criarEvento(evento));
+export const salvarEvento = createAsyncThunk('agenda/salvar', (evento) => api.criarEvento(evento));
 
 export const excluirEvento = createAsyncThunk('agenda/excluir', async (id) => {
-  await banco.removerEvento(id);
+  await api.removerEvento(id);
   return id;
 });
 
 export const agendaSlice = createSlice({
   name: 'agenda',
   initialState,
-  reducers: {},
+  reducers: {
+    definirVisualizacao: (state, action) => {
+      state.visualizacao = action.payload;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(carregarEventos.fulfilled, (state, action) => {
@@ -39,4 +46,5 @@ export const agendaSlice = createSlice({
   },
 });
 
+export const { definirVisualizacao } = agendaSlice.actions;
 export default agendaSlice.reducer;

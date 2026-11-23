@@ -1,239 +1,184 @@
 // ============================================================
 // API REST do aplicativo de apoio camuflado — Entrega 4.
 //
-// Node.js + Express. Cada entidade é uma coleção (arquivo JSON em
-// dados/) com rotas RESTful completas: GET, GET /:id, POST, PUT, DELETE.
+// Node.js + Express. Três coleções com rotas RESTful completas
+// (GET, GET /:id, POST, PUT, DELETE): guardioes, ocorrencias e eventos.
+// Os dados ficam em arquivos JSON na pasta dados/ (veja repositorio.js).
 //
-// Relacionamentos reais, validados pela API antes de salvar:
-//   evidencias.ocorrenciaId      -> ocorrencias
-//   encaminhamentos.ocorrenciaId -> ocorrencias
-//   encaminhamentos.servicoId    -> servicos
-// Ao remover uma ocorrência, suas evidências e encaminhamentos
-// também são removidos (cascata).
+// Relacionamento real, validado pela API antes de salvar:
+//   ocorrencias.guardiao_id -> guardioes   (guardião que sabe da ocorrência)
+// Ao remover um guardião, as ocorrências dele continuam existindo
+// com guardiao_id = null.
 //
 // Erros: 400 (dados inválidos / relacionamento inexistente),
+// 401 (chave de acesso ausente/errada, só se API_TOKEN estiver definida),
 // 404 (id não encontrado), 500 (erro interno).
 // ============================================================
+require("dotenv").config({ quiet: true });
 const express = require("express");
 const cors = require("cors");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-
-const DADOS_DIR = process.env.DADOS_DIR || path.join(__dirname, "dados");
-
-const arquivo = (nome) => path.join(DADOS_DIR, `${nome}.json`);
-const lerColecao = (nome) => JSON.parse(fs.readFileSync(arquivo(nome), "utf-8"));
-const salvarColecao = (nome, lista) =>
-  fs.writeFileSync(arquivo(nome), JSON.stringify(lista, null, 2));
-const proximoId = (lista) => lista.reduce((maior, i) => Math.max(maior, i.id), 0) + 1;
+const { criarRepositorio } = require("./repositorio");
 
 const textoValido = (v) => typeof v === "string" && v.trim().length > 0;
 const inteiro = (v) => Number.isInteger(Number(v)) && v !== null && v !== "" && v !== true && v !== false;
-const dataIso = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+// AAAA-MM-DD e uma data que existe de verdade (recusa 2026-02-31).
+const dataIso = (v) => {
+  if (!(typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v))) return false;
+  const [a, m, d] = v.split("-").map(Number);
+  const dt = new Date(Date.UTC(a, m - 1, d));
+  return dt.getUTCFullYear() === a && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+};
 const hora = (v) => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 
 // Fábrica de rotas CRUD.
-//   campos:    únicos campos aceitos no corpo (o resto é descartado)
-//   validar:   (item) => lista de erros
-//   relacionar:(item) => lista de erros de chave estrangeira
-//   aoSalvar:  (item, lista) => ajusta a lista antes de gravar (regras de negócio)
-//   aoRemover: (item) => limpeza em cascata
-function criarRotasCrud(nome, { campos, validar, relacionar, aoSalvar, aoRemover }) {
-  const roteador = express.Router();
-  // Mantém só os campos permitidos e normaliza chaves estrangeiras ("1" -> 1).
+//   campos:     únicos campos aceitos no corpo (o resto é descartado)
+//   padroes:    () => valores padrão de um item novo (ex.: a data de agora)
+//   validar:    (item) => lista de erros
+//   relacionar: async (item) => lista de erros de chave estrangeira
+//   aoSalvar:   async (item) => regra de negócio depois de gravar
+//   aoRemover:  async (item) => limpeza depois de remover
+function crud(repo, nome, { campos, padroes, validar, relacionar, aoSalvar, aoRemover }) {
+  const rotas = express.Router();
   const filtrar = (corpo) =>
     Object.fromEntries(
       campos
         .filter((c) => corpo && typeof corpo === "object" && c in corpo)
-        .map((c) => [c, c.endsWith("Id") && inteiro(corpo[c]) ? Number(corpo[c]) : corpo[c]])
+        .map((c) => [c, c.endsWith("_id") && inteiro(corpo[c]) ? Number(corpo[c]) : corpo[c]])
     );
-  const erros = (item) => [...validar(item), ...(relacionar ? relacionar(item) : [])];
-  const idDe = (req) => Number(req.params.id);
+  const erros = async (item) => [...validar(item), ...(relacionar ? await relacionar(item) : [])];
+  const naoEncontrado = (res, id) => res.status(404).json({ erro: `${nome} com id ${id} não encontrado.` });
+  const idDe = (req) => (/^\d+$/.test(req.params.id) ? Number(req.params.id) : null);
 
-  roteador.get("/", (req, res) => {
-    let lista = lerColecao(nome);
-    // Filtro simples por campo: GET /evidencias?ocorrenciaId=1
-    for (const campo of campos) {
-      if (req.query[campo] !== undefined) {
-        lista = lista.filter((i) => String(i[campo]) === String(req.query[campo]));
-      }
-    }
-    res.json(lista);
+  rotas.get("/", async (req, res) => {
+    // Filtro simples por campo: GET /eventos?data=2026-11-20
+    const filtros = Object.fromEntries(campos.filter((c) => req.query[c] !== undefined).map((c) => [c, req.query[c]]));
+    res.json(await repo.listar(nome, filtros));
   });
 
-  roteador.get("/:id", (req, res) => {
-    const item = lerColecao(nome).find((i) => i.id === idDe(req));
-    if (!item) return res.status(404).json({ erro: `${nome} com id ${req.params.id} não encontrado.` });
+  rotas.get("/:id", async (req, res) => {
+    const id = idDe(req);
+    const item = id === null ? null : await repo.obter(nome, id);
+    if (!item) return naoEncontrado(res, req.params.id);
     res.json(item);
   });
 
-  roteador.post("/", (req, res) => {
-    const dados = filtrar(req.body);
-    const lista = lerColecao(nome);
-    const novo = { id: proximoId(lista), ...dados };
-    const e = erros(novo);
+  rotas.post("/", async (req, res) => {
+    const dados = { ...(padroes ? padroes() : {}), ...filtrar(req.body) };
+    const e = await erros(dados);
     if (e.length) return res.status(400).json({ erros: e });
-    lista.push(novo);
-    if (aoSalvar) aoSalvar(novo, lista);
-    salvarColecao(nome, lista);
-    res.status(201).json(novo);
+    const criado = await repo.criar(nome, dados);
+    if (aoSalvar) await aoSalvar(criado);
+    res.status(201).json(criado);
   });
 
-  roteador.put("/:id", (req, res) => {
-    const lista = lerColecao(nome);
-    const i = lista.findIndex((x) => x.id === idDe(req));
-    if (i === -1) return res.status(404).json({ erro: `${nome} com id ${req.params.id} não encontrado.` });
-    const atualizado = { ...lista[i], ...filtrar(req.body), id: lista[i].id };
-    const e = erros(atualizado);
+  rotas.put("/:id", async (req, res) => {
+    const id = idDe(req);
+    const atual = id === null ? null : await repo.obter(nome, id);
+    if (!atual) return naoEncontrado(res, req.params.id);
+    const mudancas = filtrar(req.body);
+    const e = await erros({ ...atual, ...mudancas });
     if (e.length) return res.status(400).json({ erros: e });
-    lista[i] = atualizado;
-    if (aoSalvar) aoSalvar(atualizado, lista);
-    salvarColecao(nome, lista);
+    const atualizado = await repo.atualizar(nome, id, mudancas);
+    if (aoSalvar) await aoSalvar(atualizado);
     res.json(atualizado);
   });
 
-  roteador.delete("/:id", (req, res) => {
-    const lista = lerColecao(nome);
-    const i = lista.findIndex((x) => x.id === idDe(req));
-    if (i === -1) return res.status(404).json({ erro: `${nome} com id ${req.params.id} não encontrado.` });
-    const [removido] = lista.splice(i, 1);
-    salvarColecao(nome, lista);
-    if (aoRemover) aoRemover(removido);
+  rotas.delete("/:id", async (req, res) => {
+    const id = idDe(req);
+    const removido = id === null ? null : await repo.remover(nome, id);
+    if (!removido) return naoEncontrado(res, req.params.id);
+    if (aoRemover) await aoRemover(removido);
     res.json({ removido });
   });
 
-  return roteador;
+  return rotas;
 }
 
-const TIPOS_VIOLENCIA = ["Psicológica", "Física", "Patrimonial", "Moral", "Sexual"];
-const TIPOS_EVIDENCIA = ["audio", "foto", "doc"];
-const STATUS_ENCAMINHAMENTO = ["Atendimento Agendado", "Em Andamento", "Concluído", "Cancelado"];
-
 function criarApp() {
+  const repo = criarRepositorio();
   const app = express();
   app.use(cors());
-  app.use(express.json());
 
-  // ---------- Ocorrências ----------
+  // Chave de acesso opcional (API_TOKEN). Com a API publicada na internet, só quem
+  // envia o cabeçalho x-api-key correto passa; GET / continua aberto (saúde do serviço).
+  // Atenção: a chave vai embutida no app, então dificulta o acesso casual, mas não
+  // substitui um login por usuário (limitação conhecida do protótipo).
+  const chave = process.env.API_TOKEN;
+  if (chave) {
+    app.use((req, res, next) => {
+      if (req.method === "OPTIONS" || req.path === "/") return next();
+      const enviada = String(req.get("x-api-key") || "");
+      const igual = enviada.length === chave.length && crypto.timingSafeEqual(Buffer.from(enviada), Buffer.from(chave));
+      if (!igual) return res.status(401).json({ erro: "Acesso não autorizado." });
+      next();
+    });
+  }
+
+  app.use(express.json({ limit: "100kb" }));
+
+  // ---------- Guardiões (contatos de confiança) ----------
+  app.use(
+    "/guardioes",
+    crud(repo, "guardioes", {
+      campos: ["nome", "parentesco", "telefone", "prioridade"],
+      validar: (g) => {
+        const e = [];
+        if (!textoValido(g.nome)) e.push("O campo 'nome' é obrigatório.");
+        if (!textoValido(g.telefone)) e.push("O campo 'telefone' é obrigatório.");
+        if (g.prioridade !== undefined && typeof g.prioridade !== "boolean") e.push("O campo 'prioridade' deve ser booleano.");
+        return e;
+      },
+      // Regra de negócio: só um guardião pode ser o "chamar primeiro".
+      aoSalvar: async (g) => {
+        if (g.prioridade !== true) return;
+        for (const outro of await repo.listar("guardioes", { prioridade: true })) {
+          if (outro.id !== g.id) await repo.atualizar("guardioes", outro.id, { prioridade: false });
+        }
+      },
+      // Garante o relacionamento mesmo em armazenamento sem chave estrangeira (JSON).
+      aoRemover: async (g) => {
+        for (const oc of await repo.listar("ocorrencias", { guardiao_id: g.id })) {
+          await repo.atualizar("ocorrencias", oc.id, { guardiao_id: null });
+        }
+      },
+    })
+  );
+
+  // ---------- Ocorrências (relaciona com Guardiões) ----------
   app.use(
     "/ocorrencias",
-    criarRotasCrud("ocorrencias", {
-      campos: ["data_ocorrencia", "tipo_violencia", "local", "descricao", "nivel_risco"],
+    crud(repo, "ocorrencias", {
+      campos: ["data_ocorrencia", "local", "descricao", "nivel_perigo", "guardiao_id"],
+      padroes: () => ({ data_ocorrencia: new Date().toISOString() }),
       validar: (o) => {
         const e = [];
-        if (!textoValido(o.descricao)) e.push("O campo 'descricao' é obrigatório.");
-        if (!TIPOS_VIOLENCIA.includes(o.tipo_violencia))
-          e.push(`O campo 'tipo_violencia' deve ser um de: ${TIPOS_VIOLENCIA.join(", ")}.`);
-        if (!inteiro(o.nivel_risco) || o.nivel_risco < 1 || o.nivel_risco > 5)
-          e.push("O campo 'nivel_risco' deve ser um inteiro de 1 a 5.");
-        if (!textoValido(o.data_ocorrencia)) e.push("O campo 'data_ocorrencia' é obrigatório.");
+        if (!inteiro(o.nivel_perigo) || o.nivel_perigo < 1 || o.nivel_perigo > 10)
+          e.push("O campo 'nivel_perigo' deve ser um inteiro de 1 a 10.");
+        if (o.descricao !== undefined && o.descricao !== null && typeof o.descricao !== "string")
+          e.push("O campo 'descricao' deve ser texto.");
         return e;
       },
-      aoRemover: (o) => {
-        for (const filha of ["evidencias", "encaminhamentos"]) {
-          salvarColecao(filha, lerColecao(filha).filter((x) => x.ocorrenciaId !== o.id));
-        }
-      },
-    })
-  );
-
-  // ---------- Evidências (relaciona com Ocorrências) ----------
-  app.use(
-    "/evidencias",
-    criarRotasCrud("evidencias", {
-      campos: ["ocorrenciaId", "tipo", "nome", "descricao", "data_upload"],
-      validar: (v) => {
-        const e = [];
-        if (!inteiro(v.ocorrenciaId)) e.push("O campo 'ocorrenciaId' é obrigatório.");
-        if (!textoValido(v.nome)) e.push("O campo 'nome' é obrigatório.");
-        if (!TIPOS_EVIDENCIA.includes(v.tipo))
-          e.push(`O campo 'tipo' deve ser um de: ${TIPOS_EVIDENCIA.join(", ")}.`);
-        return e;
-      },
-      relacionar: (v) =>
-        inteiro(v.ocorrenciaId) && !lerColecao("ocorrencias").some((o) => o.id === Number(v.ocorrenciaId))
-          ? [`Não existe ocorrência com id ${v.ocorrenciaId}.`]
+      relacionar: async (o) =>
+        inteiro(o.guardiao_id) && !(await repo.obter("guardioes", Number(o.guardiao_id)))
+          ? [`Não existe guardião com id ${o.guardiao_id}.`]
           : [],
-    })
-  );
-
-  // ---------- Serviços de apoio ----------
-  app.use(
-    "/servicos",
-    criarRotasCrud("servicos", {
-      campos: ["nome", "tipo", "telefone", "endereco", "atendimento_24h", "descricao"],
-      validar: (s) => {
-        const e = [];
-        if (!textoValido(s.nome)) e.push("O campo 'nome' é obrigatório.");
-        if (!textoValido(s.telefone)) e.push("O campo 'telefone' é obrigatório.");
-        if (s.atendimento_24h !== undefined && typeof s.atendimento_24h !== "boolean")
-          e.push("O campo 'atendimento_24h' deve ser booleano.");
-        return e;
-      },
-      aoRemover: (s) => {
-        // Não deixa encaminhamentos apontando para um serviço que deixou de existir.
-        salvarColecao("encaminhamentos", lerColecao("encaminhamentos").filter((x) => x.servicoId !== s.id));
-      },
-    })
-  );
-
-  // ---------- Encaminhamentos (relaciona Ocorrências e Serviços) ----------
-  app.use(
-    "/encaminhamentos",
-    criarRotasCrud("encaminhamentos", {
-      campos: ["ocorrenciaId", "servicoId", "data", "status"],
-      validar: (en) => {
-        const e = [];
-        if (!inteiro(en.ocorrenciaId)) e.push("O campo 'ocorrenciaId' é obrigatório.");
-        if (!inteiro(en.servicoId)) e.push("O campo 'servicoId' é obrigatório.");
-        if (!textoValido(en.data)) e.push("O campo 'data' é obrigatório.");
-        if (!STATUS_ENCAMINHAMENTO.includes(en.status))
-          e.push(`O campo 'status' deve ser um de: ${STATUS_ENCAMINHAMENTO.join(", ")}.`);
-        return e;
-      },
-      relacionar: (en) => {
-        const e = [];
-        if (inteiro(en.ocorrenciaId) && !lerColecao("ocorrencias").some((o) => o.id === Number(en.ocorrenciaId)))
-          e.push(`Não existe ocorrência com id ${en.ocorrenciaId}.`);
-        if (inteiro(en.servicoId) && !lerColecao("servicos").some((s) => s.id === Number(en.servicoId)))
-          e.push(`Não existe serviço com id ${en.servicoId}.`);
-        return e;
-      },
-    })
-  );
-
-  // ---------- Contatos de confiança ----------
-  app.use(
-    "/contatos",
-    criarRotasCrud("contatos", {
-      campos: ["nome", "parentesco", "telefone", "contato_confianca", "prioridade"],
-      validar: (c) => {
-        const e = [];
-        if (!textoValido(c.nome)) e.push("O campo 'nome' é obrigatório.");
-        if (!textoValido(c.telefone)) e.push("O campo 'telefone' é obrigatório.");
-        for (const b of ["contato_confianca", "prioridade"]) {
-          if (c[b] !== undefined && typeof c[b] !== "boolean") e.push(`O campo '${b}' deve ser booleano.`);
-        }
-        return e;
-      },
-      // Regra de negócio: só um contato pode ser o "chamar primeiro".
-      aoSalvar: (c, lista) => {
-        if (c.prioridade === true) lista.forEach((x) => { if (x.id !== c.id) x.prioridade = false; });
-      },
     })
   );
 
   // ---------- Eventos da agenda (disfarce) ----------
   app.use(
     "/eventos",
-    criarRotasCrud("eventos", {
-      campos: ["titulo", "data", "horaInicio", "horaFim", "local", "descricao", "cor", "categoria"],
+    crud(repo, "eventos", {
+      campos: ["titulo", "data", "hora_inicio", "hora_fim", "local", "descricao", "cor", "categoria"],
       validar: (ev) => {
         const e = [];
         if (!textoValido(ev.titulo)) e.push("O campo 'titulo' é obrigatório.");
         if (!dataIso(ev.data)) e.push("O campo 'data' deve estar no formato AAAA-MM-DD.");
-        if (ev.horaInicio !== undefined && !hora(ev.horaInicio)) e.push("O campo 'horaInicio' deve estar no formato HH:MM.");
-        if (ev.horaFim !== undefined && !hora(ev.horaFim)) e.push("O campo 'horaFim' deve estar no formato HH:MM.");
+        if (ev.hora_inicio != null && !hora(ev.hora_inicio)) e.push("O campo 'hora_inicio' deve estar no formato HH:MM.");
+        if (ev.hora_fim != null && !hora(ev.hora_fim)) e.push("O campo 'hora_fim' deve estar no formato HH:MM.");
         return e;
       },
     })
@@ -243,7 +188,8 @@ function criarApp() {
   // Resultado do modelo treinado em data-science/notebook.ipynb (somente leitura).
   // Sempre acompanhado de metadados.aviso: é uma estimativa acadêmica.
   const risco = express.Router();
-  const lerRisco = () => JSON.parse(fs.readFileSync(arquivo("risco_territorial"), "utf-8"));
+  const arquivoRisco = path.join(process.env.DADOS_DIR || path.join(__dirname, "dados"), "risco_territorial.json");
+  const lerRisco = () => JSON.parse(fs.readFileSync(arquivoRisco, "utf-8"));
   const semAcento = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
   risco.get("/", (req, res) => {
@@ -278,7 +224,7 @@ function criarApp() {
   app.use("/risco-territorial", risco);
 
   app.get("/", (req, res) => {
-    res.json({ status: "ok", mensagem: "API do aplicativo de apoio camuflado rodando." });
+    res.json({ status: "ok", mensagem: "API do aplicativo de apoio camuflado rodando.", dados: repo.tipo });
   });
 
   // JSON malformado no corpo -> 400 (não 500)
@@ -286,6 +232,9 @@ function criarApp() {
   app.use((err, req, res, next) => {
     if (err.type === "entity.parse.failed") {
       return res.status(400).json({ erro: "Corpo da requisição não é um JSON válido." });
+    }
+    if (err.type === "entity.too.large") {
+      return res.status(413).json({ erro: "Corpo da requisição grande demais (máximo de 100 KB)." });
     }
     console.error(err);
     res.status(500).json({ erro: "Erro interno no servidor." });
@@ -296,7 +245,8 @@ function criarApp() {
 
 if (require.main === module) {
   const PORTA = process.env.PORT || 3333;
-  criarApp().listen(PORTA, () => {
+  const app = criarApp();
+  app.listen(PORTA, () => {
     console.log(`API rodando em http://localhost:${PORTA}`);
   });
 }

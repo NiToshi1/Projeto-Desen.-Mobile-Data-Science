@@ -47,3 +47,15 @@ Pontos que o grupo deve saber explicar na apresentação (a IA os encontrou dura
 - o modelo tem desempenho **moderado** e o indicador é do território, não de uma pessoa.
 
 > Registrar aqui qualquer ajuste manual feito pelo grupo no notebook.
+
+## Ajustes depois da Entrega 4 — banco de dados, navegação e agenda
+
+**Ferramenta:** Claude Code (Anthropic), modelo Claude Sonnet 5.5. Consultas à documentação oficial do Expo (SDK 58) para o Expo Router.
+
+| Prompt (resumo) | O que foi gerado | O que o grupo conferiu |
+|---|---|---|
+| "O que falta para entregarmos?" e "pode realizar o 6 e o 7" | Auditoria do repositório (testes, lint, notebook, Git); correção das contagens de testes nos README e remoção de variáveis do `.env.example` que o projeto não usava | Lista de pendências (Kanban, `USO_IA.md`, análise do notebook) |
+| "Cruds e conexão com o banco, nada funciona"; "Espaço Seguro: só nível de perigo 1 a 10, registrar e um botão para o telefone da polícia; guardiões devem salvar"; "no lugar do histórico, SMS para os guardiões" | Agenda com visualizações Semana e Mês, busca e criação de eventos; Espaço Seguro enxuto (ocorrência com perigo de 1 a 10, ligar 190, guardiões, SMS aos guardiões com `expo-sms`); dados salvos pela API | Teste manual das telas; o SMS precisa ser testado no celular |
+| Enunciados das Entregas 2 e 4 e exemplo do Hotel Aurora; "desistir do Supabase e seguir como o professor" | Navegação Stack, Tab e Drawer com layouts por arquivo do Expo Router (`src/app/`); API Express com dados em arquivos JSON (`api/repositorio.js`), como no exemplo; relacionamento `ocorrencias.guardiao_id` validado pela API; testes de integração; remoção de código do template sem uso. O Supabase chegou a ser integrado e foi abandonado | `npx tsc --noEmit`, `npx expo lint` e `npm test` na API |
+
+Decisões do grupo: manter a aba *Contexto* (indicador territorial) no app, por ser a integração de Data Science (API `/risco-territorial`); dispensar banco externo: os dados ficam em arquivos JSON, como no exemplo da disciplina (a API roda localmente na demonstração).

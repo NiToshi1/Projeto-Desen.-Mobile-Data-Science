@@ -63,7 +63,7 @@ export default function DetalheEventoModal({ evento, visivel, aoFechar }) {
             <Ionicons name="time-outline" size={20} color="#5F6368" style={styles.icone} />
             <View>
               <Text style={styles.textoPrincipal}>
-                {evento.data} · {evento.horaInicio} às {evento.horaFim}
+                {evento.data} · {evento.hora_inicio} às {evento.hora_fim}
               </Text>
               <Text style={styles.textoSecundario}>Fuso horário padrão (Brasília)</Text>
             </View>

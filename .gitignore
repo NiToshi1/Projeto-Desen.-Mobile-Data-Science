@@ -50,3 +50,6 @@ example
 venv/
 __pycache__/
 .ipynb_checkpoints/
+
+# Verificações automatizadas locais (não fazem parte da entrega)
+/qa/

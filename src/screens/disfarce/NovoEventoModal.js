@@ -43,8 +43,8 @@ export default function NovoEventoModal({ visivel, aoFechar, dataPadrao = paraIs
     const novoEvento = {
       titulo: titulo.trim(),
       data: data.trim(),
-      horaInicio: horaInicio.trim(),
-      horaFim: horaFim.trim(),
+      hora_inicio: horaInicio.trim(),
+      hora_fim: horaFim.trim(),
       local: local.trim(),
       descricao: descricao.trim(),
       cor: categoriaSelecionada.cor,
