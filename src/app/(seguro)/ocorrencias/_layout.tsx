@@ -6,6 +6,7 @@ export default function OcorrenciasLayout() {
     <Stack screenOptions={opcoesStack}>
       <Stack.Screen name="index" options={{ title: 'Espaço Seguro' }} />
       <Stack.Screen name="nova" options={{ title: 'Registrar ocorrência' }} />
+      <Stack.Screen name="lista" options={{ title: 'Minhas ocorrências' }} />
     </Stack>
   );
 }

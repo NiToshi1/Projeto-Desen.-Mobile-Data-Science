@@ -67,6 +67,14 @@ export default function GuardioesScreen() {
             >
               <Ionicons name="call" size={16} color="#FFFFFF" />
             </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: '/guardioes/novo', params: { id: String(g.id) } })}
+              hitSlop={8}
+              style={styles.icone}
+              accessibilityLabel={`Editar ${g.nome}`}
+            >
+              <Ionicons name="create-outline" size={18} color="#A78BFA" />
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => remover(g.id, g.nome)} hitSlop={8} style={styles.icone} accessibilityLabel={`Remover ${g.nome}`}>
               <Ionicons name="trash-outline" size={18} color="#EF4444" />
             </TouchableOpacity>

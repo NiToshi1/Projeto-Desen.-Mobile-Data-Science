@@ -12,19 +12,23 @@ import {
 import { alertar } from '../../utils/alerta';
 import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { salvarEvento } from '../../store/agendaSlice';
+import { atualizarEvento, salvarEvento } from '../../store/agendaSlice';
 import { CATEGORIAS as CORES_CATEGORIAS } from '../../constants/agenda';
 import { dataValida, horaValida, paraIso, hoje } from '../../utils/datas';
 
-export default function NovoEventoModal({ visivel, aoFechar, dataPadrao = paraIso(hoje()) }) {
+// Serve para criar e para editar: com a prop "evento" abre preenchido e salva por PUT.
+export default function NovoEventoModal({ visivel, aoFechar, dataPadrao = paraIso(hoje()), evento }) {
   const dispatch = useDispatch();
-  const [titulo, setTitulo] = useState('');
-  const [data, setData] = useState(dataPadrao);
-  const [horaInicio, setHoraInicio] = useState('09:00');
-  const [horaFim, setHoraFim] = useState('10:00');
-  const [local, setLocal] = useState('');
-  const [descricao, setDescricao] = useState('');
-  const [categoriaSelecionada, setCategoriaSelecionada] = useState(CORES_CATEGORIAS[0]);
+  const editando = !!evento;
+  const [titulo, setTitulo] = useState(evento?.titulo ?? '');
+  const [data, setData] = useState(evento?.data ?? dataPadrao);
+  const [horaInicio, setHoraInicio] = useState(evento?.hora_inicio ?? '09:00');
+  const [horaFim, setHoraFim] = useState(evento?.hora_fim ?? '10:00');
+  const [local, setLocal] = useState(evento?.local ?? '');
+  const [descricao, setDescricao] = useState(evento?.descricao ?? '');
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState(
+    CORES_CATEGORIAS.find((c) => c.categoria === evento?.categoria) ?? CORES_CATEGORIAS[0]
+  );
 
   const handleSalvar = async () => {
     if (!titulo.trim()) {
@@ -52,7 +56,8 @@ export default function NovoEventoModal({ visivel, aoFechar, dataPadrao = paraIs
     };
 
     try {
-      await dispatch(salvarEvento(novoEvento)).unwrap();
+      if (editando) await dispatch(atualizarEvento({ id: evento.id, dados: novoEvento })).unwrap();
+      else await dispatch(salvarEvento(novoEvento)).unwrap();
     } catch (e) {
       alertar('Não foi possível salvar', e.message);
       return;
@@ -72,7 +77,7 @@ export default function NovoEventoModal({ visivel, aoFechar, dataPadrao = paraIs
           <TouchableOpacity onPress={aoFechar} hitSlop={10} style={styles.botaoFechar}>
             <Ionicons name="close" size={26} color="#3C4043" />
           </TouchableOpacity>
-          <Text style={styles.headerTitulo}>Novo Evento</Text>
+          <Text style={styles.headerTitulo}>{editando ? 'Editar Evento' : 'Novo Evento'}</Text>
           <TouchableOpacity onPress={handleSalvar} style={styles.botaoSalvar}>
             <Text style={styles.textoSalvar}>Salvar</Text>
           </TouchableOpacity>

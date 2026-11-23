@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Switch } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useDispatch } from 'react-redux';
-import { salvarGuardiao } from '../../store';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useDispatch, useSelector } from 'react-redux';
+import { editarGuardiao, salvarGuardiao } from '../../store';
 import { alertar } from '../../utils/alerta';
 import estilos from './estilos';
 
-// Cadastro de um guardião (contato de confiança), gravado no banco pela API.
+// Cadastro e edição de um guardião (contato de confiança), gravado pela API.
+// Com o parâmetro ?id=... abre preenchido e salva por PUT.
 export default function NovoGuardiaoScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
-  const [nome, setNome] = useState('');
-  const [parentesco, setParentesco] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [prioridade, setPrioridade] = useState(false);
+  const { id } = useLocalSearchParams();
+  const existente = useSelector((state) => state.ocorrencias.guardioes.find((g) => String(g.id) === String(id)));
+  const editando = !!existente;
+  const [nome, setNome] = useState(existente?.nome ?? '');
+  const [parentesco, setParentesco] = useState(existente?.parentesco ?? '');
+  const [telefone, setTelefone] = useState(existente?.telefone ?? '');
+  const [prioridade, setPrioridade] = useState(!!existente?.prioridade);
   const [salvando, setSalvando] = useState(false);
 
   const salvar = async () => {
@@ -23,14 +27,13 @@ export default function NovoGuardiaoScreen() {
     }
     setSalvando(true);
     try {
-      await dispatch(
-        salvarGuardiao({
-          nome: nome.trim(),
-          parentesco: parentesco.trim() || 'Apoio de confiança',
-          telefone: telefone.trim(),
-          prioridade,
-        })
-      ).unwrap();
+      const dados = {
+        nome: nome.trim(),
+        parentesco: parentesco.trim() || 'Apoio de confiança',
+        telefone: telefone.trim(),
+        prioridade,
+      };
+      await dispatch(editando ? editarGuardiao({ id: existente.id, dados }) : salvarGuardiao(dados)).unwrap();
       router.back();
     } catch (e) {
       alertar('Não foi possível salvar', e.message);
@@ -40,6 +43,7 @@ export default function NovoGuardiaoScreen() {
 
   return (
     <ScrollView style={estilos.tela} contentContainerStyle={estilos.conteudo} keyboardShouldPersistTaps="handled">
+      <Stack.Screen options={{ title: editando ? 'Editar guardião' : 'Novo guardião' }} />
       <View style={estilos.campo}>
         <Text style={estilos.label}>Nome</Text>
         <TextInput style={estilos.input} value={nome} onChangeText={setNome} placeholder="Ex: Mariana Vaz" placeholderTextColor="#64748B" />
@@ -82,7 +86,7 @@ export default function NovoGuardiaoScreen() {
       </View>
 
       <TouchableOpacity style={[estilos.botao, salvando && { opacity: 0.6 }]} onPress={salvar} disabled={salvando} activeOpacity={0.85}>
-        <Text style={estilos.botaoTexto}>{salvando ? 'Salvando...' : 'Salvar guardião'}</Text>
+        <Text style={estilos.botaoTexto}>{salvando ? 'Salvando...' : editando ? 'Salvar alterações' : 'Salvar guardião'}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

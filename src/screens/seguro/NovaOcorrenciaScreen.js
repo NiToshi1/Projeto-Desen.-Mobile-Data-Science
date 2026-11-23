@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
-import { salvarOcorrencia } from '../../store';
+import { atualizarOcorrencia, salvarOcorrencia } from '../../store';
 import { alertar } from '../../utils/alerta';
 import { NIVEIS_PERIGO, corDoPerigo, rotuloDoPerigo } from '../../utils/perigo';
 import estilos from './estilos';
 
-// Registro de uma ocorrência: nível de perigo (1 a 10), um guardião de
+// Registro (e edição, com ?id=...) de uma ocorrência: nível de perigo (1 a 10), um guardião de
 // confiança opcional (relacionamento validado pela API) e o relato.
 // A data e a hora são gravadas automaticamente.
 export default function NovaOcorrenciaScreen() {
@@ -15,10 +15,13 @@ export default function NovaOcorrenciaScreen() {
   const dispatch = useDispatch();
   const guardioes = useSelector((state) => state.ocorrencias.guardioes);
 
-  const [nivel, setNivel] = useState(null);
-  const [guardiaoId, setGuardiaoId] = useState(null);
-  const [local, setLocal] = useState('');
-  const [descricao, setDescricao] = useState('');
+  const { id } = useLocalSearchParams();
+  const existente = useSelector((state) => state.ocorrencias.ocorrencias.find((o) => String(o.id) === String(id)));
+  const editando = !!existente;
+  const [nivel, setNivel] = useState(existente?.nivel_perigo ?? null);
+  const [guardiaoId, setGuardiaoId] = useState(existente?.guardiao_id ?? null);
+  const [local, setLocal] = useState(existente?.local ?? '');
+  const [descricao, setDescricao] = useState(existente?.descricao ?? '');
   const [salvando, setSalvando] = useState(false);
 
   const salvar = async () => {
@@ -28,15 +31,14 @@ export default function NovaOcorrenciaScreen() {
     }
     setSalvando(true);
     try {
-      await dispatch(
-        salvarOcorrencia({
-          nivel_perigo: nivel,
-          local: local.trim(),
-          descricao: descricao.trim(),
-          guardiao_id: guardiaoId,
-        })
-      ).unwrap();
-      alertar('Ocorrência registrada', 'Seu registro foi salvo com segurança.');
+      const dados = {
+        nivel_perigo: nivel,
+        local: local.trim(),
+        descricao: descricao.trim(),
+        guardiao_id: guardiaoId,
+      };
+      await dispatch(editando ? atualizarOcorrencia({ id: existente.id, dados }) : salvarOcorrencia(dados)).unwrap();
+      alertar(editando ? 'Ocorrência atualizada' : 'Ocorrência registrada', 'Seu registro foi salvo com segurança.');
       router.back();
     } catch (e) {
       alertar('Não foi possível salvar', e.message);
@@ -46,6 +48,7 @@ export default function NovaOcorrenciaScreen() {
 
   return (
     <ScrollView style={estilos.tela} contentContainerStyle={estilos.conteudo} keyboardShouldPersistTaps="handled">
+      <Stack.Screen options={{ title: editando ? 'Editar ocorrência' : 'Registrar ocorrência' }} />
       <View style={estilos.campo}>
         <Text style={estilos.label}>Nível de perigo (1 a 10)</Text>
         <View style={estilos.chips}>
@@ -116,7 +119,7 @@ export default function NovaOcorrenciaScreen() {
       </View>
 
       <TouchableOpacity style={[estilos.botao, salvando && { opacity: 0.6 }]} onPress={salvar} disabled={salvando} activeOpacity={0.85}>
-        <Text style={estilos.botaoTexto}>{salvando ? 'Salvando...' : 'Salvar ocorrência'}</Text>
+        <Text style={estilos.botaoTexto}>{salvando ? 'Salvando...' : editando ? 'Salvar alterações' : 'Salvar ocorrência'}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

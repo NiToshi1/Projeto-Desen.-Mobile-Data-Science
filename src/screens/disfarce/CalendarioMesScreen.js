@@ -124,6 +124,7 @@ export default function CalendarioMesScreen() {
 
   const [novoEventoAberto, setNovoEventoAberto] = useState(false);
   const [eventoSelecionado, setEventoSelecionado] = useState(null);
+  const [eventoEmEdicao, setEventoEmEdicao] = useState(null);
 
   // Todos os eventos, em ordem de data e hora.
   const eventos = useMemo(() => todosEventos.slice().sort(porDataEHora), [todosEventos]);
@@ -311,6 +312,18 @@ export default function CalendarioMesScreen() {
         evento={eventoSelecionado}
         visivel={!!eventoSelecionado}
         aoFechar={() => setEventoSelecionado(null)}
+        aoEditar={(ev) => {
+          setEventoSelecionado(null);
+          setTimeout(() => setEventoEmEdicao(ev), 350); // espera o detalhe fechar antes de abrir a edição
+        }}
+      />
+
+      {/* A key remonta o modal de edição: sempre abre com os dados atuais do evento. */}
+      <NovoEventoModal
+        key={`editar-${eventoEmEdicao?.id ?? 'nenhum'}`}
+        visivel={!!eventoEmEdicao}
+        evento={eventoEmEdicao}
+        aoFechar={() => setEventoEmEdicao(null)}
       />
     </SafeAreaView>
   );

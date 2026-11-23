@@ -19,6 +19,8 @@ export const carregarEventos = createAsyncThunk('agenda/carregar', () => api.lis
 
 export const salvarEvento = createAsyncThunk('agenda/salvar', (evento) => api.criarEvento(evento));
 
+export const atualizarEvento = createAsyncThunk('agenda/atualizar', ({ id, dados }) => api.atualizarEvento(id, dados));
+
 export const excluirEvento = createAsyncThunk('agenda/excluir', async (id) => {
   await api.removerEvento(id);
   return id;
@@ -39,6 +41,9 @@ export const agendaSlice = createSlice({
       })
       .addCase(salvarEvento.fulfilled, (state, action) => {
         state.eventos.push(action.payload);
+      })
+      .addCase(atualizarEvento.fulfilled, (state, action) => {
+        state.eventos = state.eventos.map((ev) => (ev.id === action.payload.id ? action.payload : ev));
       })
       .addCase(excluirEvento.fulfilled, (state, action) => {
         state.eventos = state.eventos.filter((ev) => ev.id !== action.payload);

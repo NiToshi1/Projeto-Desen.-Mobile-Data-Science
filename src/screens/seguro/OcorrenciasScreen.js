@@ -13,6 +13,7 @@ import estilos from './estilos';
 export default function OcorrenciasScreen() {
   const router = useRouter();
   const guardioes = useSelector((state) => state.ocorrencias.guardioes);
+  const totalOcorrencias = useSelector((state) => state.ocorrencias.ocorrencias.length);
   const [mensagem, setMensagem] = useState(MENSAGEM_PADRAO_SMS);
 
   return (
@@ -36,6 +37,17 @@ export default function OcorrenciasScreen() {
       <TouchableOpacity style={estilos.botao} onPress={() => router.push('/ocorrencias/nova')} activeOpacity={0.85}>
         <Ionicons name="add-circle-outline" size={22} color="#FFFFFF" />
         <Text style={estilos.botaoTexto}>Registrar Nova Ocorrência</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.btnSecundario}
+        onPress={() => router.push('/ocorrencias/lista')}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Ver minhas ocorrências"
+      >
+        <Ionicons name="list-outline" size={18} color="#CBD5E1" />
+        <Text style={styles.btnSecundarioTexto}>Ver minhas ocorrências ({totalOcorrencias})</Text>
       </TouchableOpacity>
 
       <Text style={estilos.titulo}>Avisar meus guardiões por SMS</Text>
@@ -83,4 +95,16 @@ const styles = StyleSheet.create({
   txtPolicia: { color: '#FFFFFF', fontSize: 17, fontWeight: '800', letterSpacing: 0.4 },
   subPolicia: { color: '#FECACA', fontSize: 12, marginTop: 2 },
   desativado: { opacity: 0.5 },
+  btnSecundario: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderRadius: 14,
+    paddingVertical: 12,
+    marginBottom: 22,
+  },
+  btnSecundarioTexto: { color: '#CBD5E1', fontSize: 14, fontWeight: '600' },
 });

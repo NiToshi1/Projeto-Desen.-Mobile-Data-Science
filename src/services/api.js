@@ -54,11 +54,13 @@ const del = (rota, id) => requisitar(`${rota}/${id}`, { method: 'DELETE' });
 // ---------- Eventos da agenda (disfarce) ----------
 export const listarEventos = () => requisitar('/eventos');
 export const criarEvento = (dados) => post('/eventos', dados);
+export const atualizarEvento = (id, dados) => put('/eventos', id, dados);
 export const removerEvento = (id) => del('/eventos', id);
 
 // ---------- Ocorrências ----------
 export const listarOcorrencias = () => requisitar('/ocorrencias');
 export const criarOcorrencia = (dados) => post('/ocorrencias', dados);
+export const atualizarOcorrencia = (id, dados) => put('/ocorrencias', id, dados);
 export const removerOcorrencia = (id) => del('/ocorrencias', id);
 
 // ---------- Guardiões ----------

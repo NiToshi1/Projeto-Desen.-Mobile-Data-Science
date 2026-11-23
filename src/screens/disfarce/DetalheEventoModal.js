@@ -13,7 +13,7 @@ import { useDispatch } from 'react-redux';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { excluirEvento } from '../../store/agendaSlice';
 
-export default function DetalheEventoModal({ evento, visivel, aoFechar }) {
+export default function DetalheEventoModal({ evento, visivel, aoFechar, aoEditar }) {
   const dispatch = useDispatch();
 
   if (!evento) return null;
@@ -45,7 +45,24 @@ export default function DetalheEventoModal({ evento, visivel, aoFechar }) {
             <Ionicons name="close" size={24} color="#3C4043" />
           </TouchableOpacity>
           <View style={styles.headerAcoesDireita}>
-            <TouchableOpacity onPress={handleExcluir} hitSlop={10} style={styles.botaoAcao}>
+            {aoEditar ? (
+              <TouchableOpacity
+                onPress={() => aoEditar(evento)}
+                hitSlop={10}
+                style={styles.botaoAcao}
+                accessibilityRole="button"
+                accessibilityLabel="Editar evento"
+              >
+                <Ionicons name="create-outline" size={22} color="#3C4043" />
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity
+              onPress={handleExcluir}
+              hitSlop={10}
+              style={styles.botaoAcao}
+              accessibilityRole="button"
+              accessibilityLabel="Excluir evento"
+            >
               <Ionicons name="trash-outline" size={22} color="#D93025" />
             </TouchableOpacity>
           </View>

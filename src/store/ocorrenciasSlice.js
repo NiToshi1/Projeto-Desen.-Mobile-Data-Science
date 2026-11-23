@@ -45,6 +45,15 @@ export const salvarOcorrencia = createAsyncThunk(
   }
 );
 
+export const atualizarOcorrencia = createAsyncThunk(
+  'ocorrencias/atualizar',
+  async ({ id, dados }, { getState, rejectWithValue }) => {
+    const atualizada = await api.atualizarOcorrencia(id, dados);
+    if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
+    return atualizada;
+  }
+);
+
 export const excluirOcorrencia = createAsyncThunk('ocorrencias/excluir', async (id) => {
   await api.removerOcorrencia(id);
   return id;
@@ -56,6 +65,16 @@ export const salvarGuardiao = createAsyncThunk(
   'guardioes/salvar',
   async (guardiao, { getState, rejectWithValue }) => {
     await api.criarGuardiao(guardiao);
+    const guardioes = await api.listarGuardioes();
+    if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
+    return guardioes;
+  }
+);
+
+export const editarGuardiao = createAsyncThunk(
+  'guardioes/editar',
+  async ({ id, dados }, { getState, rejectWithValue }) => {
+    await api.atualizarGuardiao(id, dados);
     const guardioes = await api.listarGuardioes();
     if (!sessaoAtiva(getState)) return rejectWithValue(SESSAO_ENCERRADA);
     return guardioes;
@@ -110,10 +129,16 @@ export const ocorrenciasSlice = createSlice({
       .addCase(salvarOcorrencia.fulfilled, (state, action) => {
         state.ocorrencias.unshift(action.payload);
       })
+      .addCase(atualizarOcorrencia.fulfilled, (state, action) => {
+        state.ocorrencias = state.ocorrencias.map((o) => (o.id === action.payload.id ? action.payload : o));
+      })
       .addCase(excluirOcorrencia.fulfilled, (state, action) => {
         state.ocorrencias = state.ocorrencias.filter((o) => o.id !== action.payload);
       })
       .addCase(salvarGuardiao.fulfilled, (state, action) => {
+        state.guardioes = action.payload;
+      })
+      .addCase(editarGuardiao.fulfilled, (state, action) => {
         state.guardioes = action.payload;
       })
       .addCase(alternarPrioridadeGuardiao.fulfilled, (state, action) => {
@@ -127,6 +152,8 @@ export const ocorrenciasSlice = createSlice({
         });
       })
       .addCase(salvarOcorrencia.rejected, registrarErro)
+      .addCase(atualizarOcorrencia.rejected, registrarErro)
+      .addCase(editarGuardiao.rejected, registrarErro)
       .addCase(excluirOcorrencia.rejected, registrarErro)
       .addCase(salvarGuardiao.rejected, registrarErro)
       .addCase(alternarPrioridadeGuardiao.rejected, registrarErro)

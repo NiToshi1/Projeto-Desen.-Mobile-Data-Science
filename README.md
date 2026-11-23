@@ -72,15 +72,15 @@ digite o PIN de 4 dígitos (protótipo: `1234`). A tela troca para o Espaço Seg
 
 **Agenda (disfarce)** — **Drawer Navigator** com menu lateral e um calendário de verdade:
 visualizações Semana e Mês (escolhidas no menu), setas para avançar/voltar, botão "Hoje" e busca
-de eventos. Eventos ficam salvos pela API.
+de eventos. **CRUD de agendamentos:** criar (botão +), listar (no calendário), editar (lápis no detalhe do evento) e excluir (lixeira, com confirmação). Eventos ficam salvos pela API.
 
 **Espaço Seguro** — **Tab Navigator** com 3 abas, cada uma com seu **Stack** (formulários abrem
 como telas empilhadas):
 - *Ocorrências*: botão **Ligar para a polícia (190)** que abre o discador direto, **Registrar nova
-  ocorrência** (nível de perigo de 1 a 10, guardião opcional; grava pela API, sem tela de histórico) e
+  ocorrência** (nível de perigo de 1 a 10, guardião opcional; grava pela API; a lista, a edição e a exclusão ficam em *Ver minhas ocorrências*, fora da tela principal) e
   **Enviar SMS aos guardiões** (abre o app de SMS do celular com o texto e o número de todos os guardiões;
   só funciona no aparelho, não no navegador).
-- *Guardiões*: contatos de confiança gravados pela API, com ligação direta e "chamar primeiro".
+- *Guardiões*: contatos de confiança gravados pela API, com ligação direta, "chamar primeiro", **editar** e remover.
 - *Contexto*: indicador territorial do modelo de Data Science (Baixo / Médio / Alto, sempre com o aviso de estimativa acadêmica).
 
 **Saída rápida (quick exit)** — botão vermelho 👁 no cabeçalho de **todas** as telas do Espaço Seguro.
